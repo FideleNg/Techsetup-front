@@ -29,7 +29,7 @@ function App() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
-  // Recherche et Filtres Boutique
+  // Recherche et Filtres Boutique (Texte en NOIR)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Toutes');
 
@@ -44,7 +44,7 @@ function App() {
   const [clientTab, setClientTab] = useState('shop'); // 'shop', 'orders', 'reservations', 'settings'
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
 
-  // Modale de Réservation (10% min, 72h max)
+  // Modale de Réservation
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [productToReserve, setProductToReserve] = useState(null);
   const [depositAmount, setDepositAmount] = useState('');
@@ -272,6 +272,32 @@ function App() {
       .catch((err) => console.error(err));
   };
 
+  // Annulation de réservation avec avertissement non-remboursable
+  const handleCancelReservation = (reservationId) => {
+    const confirmation = window.confirm(
+      "⚠️ Attention : Êtes-vous sûr de vouloir annuler cette réservation ?\n\nConformément aux conditions générales, le montant de l'acompte versé ne vous sera PAS remboursé."
+    );
+
+    if (!confirmation) return;
+
+    fetch('http://localhost:5000/api/reservations/cancel', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reservationId })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          alert(data.error);
+        } else {
+          alert(data.message);
+          fetchClientReservations();
+          fetchProducts();
+        }
+      })
+      .catch((err) => console.error('Erreur annulation :', err));
+  };
+
   const addToCart = (product) => {
     if (product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
@@ -428,7 +454,7 @@ function App() {
               <ul style={{ margin: '0 0 0 18px', padding: 0 }}>
                 <li>Acompte minimum de <strong>10 %</strong> (soit <strong>${(Number(productToReserve.price) * 0.10).toFixed(2)}</strong>).</li>
                 <li>Validité stricte de <strong>72 heures (3 jours)</strong>.</li>
-                <li>Passé ce délai sans solde, la réservation est automatiquement annulée.</li>
+                <li>Passé ce délai sans solde, la réservation est automatiquement annulée (acompte non remboursable).</li>
               </ul>
             </div>
 
@@ -813,7 +839,7 @@ function App() {
                   <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
                 </div>
 
-                {/* Barre de recherche et Filtres par catégorie */}
+                {/* Barre de recherche et Filtres par catégorie (Texte en NOIR) */}
                 <div style={{ maxWidth: '700px', margin: '0 auto 30px auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div style={{ position: 'relative' }}>
                     <input
@@ -827,6 +853,7 @@ function App() {
                         borderRadius: '10px',
                         border: '1px solid #cbd5e1',
                         fontSize: '14px',
+                        color: '#1e293b', // Texte en noir/sombre
                         boxSizing: 'border-box',
                         backgroundColor: '#ffffff',
                         boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
@@ -930,7 +957,7 @@ function App() {
               <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <h3 style={{ marginBottom: '8px' }}>Mes Réservations (Délai 72h)</h3>
                 <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
-                  Toute réservation non soldée dans les 72 heures suivant le dépôt d'acompte est automatiquement annulée.
+                  Toute réservation non soldée dans les 72 heures est automatiquement annulée. Vous pouvez aussi annuler manuellement (l'acompte ne sera pas remboursé).
                 </p>
                 {clientReservations.length === 0 ? (
                   <p style={{ color: '#64748b' }}>Vous n'avez aucune réservation en cours.</p>
@@ -939,21 +966,34 @@ function App() {
                     {clientReservations.map((resv) => {
                       const remainingBalance = Math.max(0, Number(resv.total_price) - Number(resv.deposit_paid));
                       const isExpired = resv.status === 'expired';
+                      const isCancelled = resv.status === 'cancelled';
+                      const isActive = resv.status === 'active';
+
                       return (
-                        <div key={resv.id} style={{ border: '1px solid #e2e8f0', padding: '15px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', backgroundColor: isExpired ? '#fef2f2' : '#ffffff' }}>
+                        <div key={resv.id} style={{ border: '1px solid #e2e8f0', padding: '15px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', backgroundColor: (isExpired || isCancelled) ? '#fef2f2' : '#ffffff' }}>
                           <div>
                             <h4 style={{ margin: '0 0 5px 0', color: '#0f172a' }}>{resv.product_name} (Réf #{resv.id})</h4>
                             <div style={{ fontSize: '13px', color: '#475569' }}>
                               Acompte versé : <strong style={{ color: '#15803d' }}>${Number(resv.deposit_paid).toFixed(2)}</strong> / ${Number(resv.total_price).toFixed(2)} — Reste à payer : <strong>${remainingBalance.toFixed(2)}</strong>
                             </div>
-                            <span style={{ fontSize: '12px', color: isExpired ? '#dc2626' : '#64748b', display: 'block', marginTop: '4px' }}>
-                              Expire le : {new Date(resv.expires_at).toLocaleString()}
+                            <span style={{ fontSize: '12px', color: (isExpired || isCancelled) ? '#dc2626' : '#64748b', display: 'block', marginTop: '4px' }}>
+                              {isCancelled ? 'Réservation annulée par vos soins' : `Expire le : ${new Date(resv.expires_at).toLocaleString()}`}
                             </span>
                           </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold', backgroundColor: isExpired ? '#fee2e2' : '#fef3c7', color: isExpired ? '#dc2626' : '#b45309' }}>
-                              {isExpired ? 'Annulée (Délai 72h dépassé)' : 'Active (En attente du solde)'}
+                          
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold', backgroundColor: isCancelled ? '#fee2e2' : isExpired ? '#fee2e2' : '#fef3c7', color: isCancelled ? '#dc2626' : isExpired ? '#dc2626' : '#b45309' }}>
+                              {isCancelled ? 'Annulée' : isExpired ? 'Expirée (72h)' : 'Active (En attente)'}
                             </span>
+
+                            {isActive && (
+                              <button
+                                onClick={() => handleCancelReservation(resv.id)}
+                                style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #f87171', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
+                              >
+                                Annuler
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
@@ -1005,7 +1045,7 @@ function App() {
               <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
             </div>
 
-            {/* Barre de recherche et Filtres par catégorie */}
+            {/* Barre de recherche et Filtres par catégorie (Texte en NOIR) */}
             <div style={{ maxWidth: '700px', margin: '0 auto 30px auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div style={{ position: 'relative' }}>
                 <input
@@ -1019,6 +1059,7 @@ function App() {
                     borderRadius: '10px',
                     border: '1px solid #cbd5e1',
                     fontSize: '14px',
+                    color: '#1e293b', // Texte en noir/sombre
                     boxSizing: 'border-box',
                     backgroundColor: '#ffffff',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
@@ -1083,7 +1124,7 @@ function App() {
                         <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>${Number(product.price).toFixed(2)}</span>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           <button onClick={() => openReserveModal(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#f1f5f9' : '#e2e8f0', color: product.stock > 0 ? '#0f172a' : '#94a3b8', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Réserver</button>
-                          <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Ajouter</button>
+                          <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '14px' }}>Ajouter</button>
                         </div>
                       </div>
                     </div>

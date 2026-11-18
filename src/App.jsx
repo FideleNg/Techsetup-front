@@ -17,10 +17,19 @@ function App() {
   const [name, setName] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
   const [newForgotPass, setNewForgotPass] = useState('');
-  const [blockedMessage, setBlockedMessage] = useState(null);
 
-  // Visibilité mots de passe
+  // Alertes de sécurité connexion
+  const [blockedMessage, setBlockedMessage] = useState(null);
+  const [loginWarning, setLoginWarning] = useState(null);
+  const [lockoutTimer, setLockoutTimer] = useState(0);
+
+  // Visibilité mots de passe (Connexion)
   const [showPassword, setShowPassword] = useState(false);
+
+  // Visibilité mots de passe (Espace Sécurité Client / Admin)
+  const [showOldPass, setShowOldPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   // Panier & Commandes Client
   const [cart, setCart] = useState(() => {
@@ -30,13 +39,24 @@ function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [clientOrders, setClientOrders] = useState([]);
   const [clientTab, setClientTab] = useState('shop'); // 'shop', 'orders', 'settings'
-  const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '' });
+  
+  // Champs changement de mot de passe (avec confirmation)
+  const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
 
   // Admin states
   const [adminTab, setAdminTab] = useState('products'); // 'products', 'stock', 'users', 'settings'
   const [newProduct, setNewProduct] = useState({ name: '', category: '', price: '', description: '', image_url: '', stock: 10 });
   const [editingProduct, setEditingProduct] = useState(null);
   const [usersList, setUsersList] = useState([]);
+
+  // Décompte automatique chaque seconde lorsque lockoutTimer > 0
+  useEffect(() => {
+    if (lockoutTimer <= 0) return;
+    const timer = setInterval(() => {
+      setLockoutTimer((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [lockoutTimer]);
 
   useEffect(() => {
     localStorage.setItem('techsetup_cart', JSON.stringify(cart));
@@ -78,10 +98,13 @@ function App() {
     if (currentUser?.role === 'client') fetchClientOrders();
   }, [currentUser]);
 
-  // Connexion sécurisée avec gestion de compte bloqué
+  // Connexion sécurisée avec décompte et gestion des essais
   const handleLogin = (e) => {
     e.preventDefault();
+    if (lockoutTimer > 0) return;
+
     setBlockedMessage(null);
+    setLoginWarning(null);
 
     fetch('http://localhost:5000/api/login', {
       method: 'POST',
@@ -93,8 +116,14 @@ function App() {
         if (!res.ok) {
           if (res.status === 403) {
             setBlockedMessage({ error: data.error, support: data.support });
+          } else if (res.status === 429) {
+            setLockoutTimer(data.retryAfter || 10);
+            setLoginWarning({ message: data.error, suggestForgot: true });
           } else {
-            alert(data.error || 'Erreur de connexion');
+            setLoginWarning({
+              message: data.error || 'Erreur de connexion',
+              suggestForgot: Boolean(data.suggestForgot)
+            });
           }
           return;
         }
@@ -104,6 +133,8 @@ function App() {
           setIsAuthModalOpen(false);
           setShowPassword(false);
           setBlockedMessage(null);
+          setLoginWarning(null);
+          setLockoutTimer(0);
           alert(`Bienvenue, ${data.user.name} !`);
         }
       })
@@ -144,6 +175,8 @@ function App() {
           setAuthMode('login');
           setForgotEmail('');
           setNewForgotPass('');
+          setLoginWarning(null);
+          setLockoutTimer(0);
         }
       })
       .catch((err) => console.error(err));
@@ -194,19 +227,32 @@ function App() {
       .catch((err) => console.error(err));
   };
 
+  // Changement de mot de passe sécurisé (avec vérification de la confirmation)
   const handleUserPasswordChange = (e) => {
     e.preventDefault();
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      alert("Les nouveaux mots de passe ne correspondent pas !");
+      return;
+    }
+
     fetch('http://localhost:5000/api/user/password', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: currentUser.id, ...passwords })
+      body: JSON.stringify({ 
+        userId: currentUser.id, 
+        oldPassword: passwords.oldPassword, 
+        newPassword: passwords.newPassword 
+      })
     })
       .then((res) => res.json())
       .then((data) => {
         if (data.error) alert(data.error);
         else {
           alert(data.message);
-          setPasswords({ oldPassword: '', newPassword: '' });
+          setPasswords({ oldPassword: '', newPassword: '', confirmPassword: '' });
+          setShowOldPass(false);
+          setShowNewPass(false);
+          setShowConfirmPass(false);
         }
       })
       .catch((err) => console.error(err));
@@ -275,7 +321,6 @@ function App() {
     )
   );
 
-  // Seuil pour définir un client fidèle / VIP (ex: au moins 3 commandes)
   const VIP_THRESHOLD = 3;
   const totalFideles = usersList.filter(u => u.role === 'client' && u.total_orders >= VIP_THRESHOLD).length;
 
@@ -311,17 +356,37 @@ function App() {
         </div>
       </header>
 
-      {/* Modal Authentification & Mot de passe oublié */}
+      {/* Modal Authentification, Compte Bloqué & Limite d'essais */}
       {isAuthModalOpen && !currentUser && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px', boxSizing: 'border-box' }}>
           <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '400px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-            <button onClick={() => setIsAuthModalOpen(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>✕</button>
+            <button onClick={() => { setIsAuthModalOpen(false); setBlockedMessage(null); setLoginWarning(null); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>✕</button>
             
-            {/* Message d'erreur de compte bloqué orienté Super Admin */}
+            {/* Boîte d'alerte compte bloqué orientée Super Admin */}
             {blockedMessage && (
-              <div style={{ backgroundColor: '#fee2e2', border: '1px solid #f87171', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#991b1b', fontSize: '13px', lineHeight: '1.4' }}>
-                <strong>{blockedMessage.error}</strong>
-                <p style={{ margin: '8px 0 0 0' }}>{blockedMessage.support}</p>
+              <div style={{ backgroundColor: '#fee2e2', border: '1px solid #f87171', padding: '14px', borderRadius: '8px', marginBottom: '15px', color: '#991b1b', fontSize: '13px', lineHeight: '1.5' }}>
+                <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>{blockedMessage.error}</strong>
+                <p style={{ margin: 0 }}>{blockedMessage.support}</p>
+              </div>
+            )}
+
+            {/* Alerte mauvais mot de passe / essais restants / compte à rebours */}
+            {loginWarning && authMode === 'login' && (
+              <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#92400e', fontSize: '13px', lineHeight: '1.4' }}>
+                <strong style={{ display: 'block', marginBottom: '4px' }}>
+                  {lockoutTimer > 0
+                    ? `Trop de tentatives. Réessayez dans ${lockoutTimer}s.`
+                    : loginWarning.message}
+                </strong>
+                {loginWarning.suggestForgot && (
+                  <button
+                    type="button"
+                    onClick={() => { setForgotEmail(email); setAuthMode('forgot'); setLoginWarning(null); }}
+                    style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}
+                  >
+                    Mot de passe oublié ? Cliquez ici pour le réinitialiser
+                  </button>
+                )}
               </div>
             )}
 
@@ -341,12 +406,26 @@ function App() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <button type="button" onClick={() => setAuthMode('forgot')} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>Mot de passe oublié ?</button>
+                    <button type="button" onClick={() => { setAuthMode('forgot'); setBlockedMessage(null); setLoginWarning(null); }} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>Mot de passe oublié ?</button>
                   </div>
-                  <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Se connecter</button>
+                  <button
+                    type="submit"
+                    disabled={lockoutTimer > 0}
+                    style={{
+                      background: lockoutTimer > 0 ? '#94a3b8' : '#2563eb',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      fontWeight: 'bold',
+                      cursor: lockoutTimer > 0 ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {lockoutTimer > 0 ? `Patienter (${lockoutTimer}s)...` : 'Se connecter'}
+                  </button>
                 </form>
                 <div style={{ textAlign: 'center', marginTop: '15px' }}>
-                  <button onClick={() => setAuthMode('register')} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Pas encore de compte ? S'inscrire</button>
+                  <button onClick={() => { setAuthMode('register'); setBlockedMessage(null); setLoginWarning(null); }} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Pas encore de compte ? S'inscrire</button>
                 </div>
               </>
             )}
@@ -598,14 +677,31 @@ function App() {
             {adminTab === 'settings' && (
               <form onSubmit={handleUserPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '400px' }}>
                 <h3 style={{ fontSize: '16px', marginBottom: '5px' }}>Changer mon mot de passe Admin</h3>
+                
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Ancien mot de passe</label>
-                  <input type="password" value={passwords.oldPassword} onChange={(e) => setPasswords({ ...passwords, oldPassword: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input type={showOldPass ? 'text' : 'password'} value={passwords.oldPassword} onChange={(e) => setPasswords({ ...passwords, oldPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    <button type="button" onClick={() => setShowOldPass(!showOldPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showOldPass} /></button>
+                  </div>
                 </div>
+
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Nouveau mot de passe</label>
-                  <input type="password" value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input type={showNewPass ? 'text' : 'password'} value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    <button type="button" onClick={() => setShowNewPass(!showNewPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showNewPass} /></button>
+                  </div>
                 </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Confirmer le nouveau mot de passe</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input type={showConfirmPass ? 'text' : 'password'} value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showConfirmPass} /></button>
+                  </div>
+                </div>
+
                 <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mettre à jour</button>
               </form>
             )}
@@ -615,9 +711,9 @@ function App() {
           /* ================= ESPACE CLIENT CONNECTÉ ================= */
           <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap' }}>
-              <button onClick={() => setClientTab('shop')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: clientTab === 'shop' ? '#2563eb' : '#ffffff', color: clientTab === 'shop' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🛍️ Boutique</button>
-              <button onClick={() => setClientTab('orders')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: clientTab === 'orders' ? '#2563eb' : '#ffffff', color: clientTab === 'orders' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>📦 Mes Commandes ({clientOrders.length})</button>
-              <button onClick={() => setClientTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: clientTab === 'settings' ? '#2563eb' : '#ffffff', color: clientTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🔒 Mon Compte & Sécurité</button>
+              <button onClick={() => setClientTab('shop')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'shop' ? '#2563eb' : '#ffffff', color: clientTab === 'shop' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🛍️ Boutique</button>
+              <button onClick={() => setClientTab('orders')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'orders' ? '#2563eb' : '#ffffff', color: clientTab === 'orders' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>📦 Mes Commandes ({clientOrders.length})</button>
+              <button onClick={() => setClientTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'settings' ? '#2563eb' : '#ffffff', color: clientTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🔒 Mon Compte & Sécurité</button>
             </div>
 
             {clientTab === 'shop' && (
@@ -678,14 +774,31 @@ function App() {
               <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0', maxWidth: '400px' }}>
                 <h3 style={{ marginBottom: '15px' }}>Sécurité du Compte</h3>
                 <form onSubmit={handleUserPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Ancien mot de passe</label>
-                    <input type="password" value={passwords.oldPassword} onChange={(e) => setPasswords({ ...passwords, oldPassword: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input type={showOldPass ? 'text' : 'password'} value={passwords.oldPassword} onChange={(e) => setPasswords({ ...passwords, oldPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                      <button type="button" onClick={() => setShowOldPass(!showOldPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showOldPass} /></button>
+                    </div>
                   </div>
+
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Nouveau mot de passe</label>
-                    <input type="password" value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input type={showNewPass ? 'text' : 'password'} value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                      <button type="button" onClick={() => setShowNewPass(!showNewPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showNewPass} /></button>
+                    </div>
                   </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Confirmer le nouveau mot de passe</label>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                      <input type={showConfirmPass ? 'text' : 'password'} value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                      <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showConfirmPass} /></button>
+                    </div>
+                  </div>
+
                   <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mettre à jour le mot de passe</button>
                 </form>
               </div>

@@ -1,5 +1,129 @@
 import { useState, useEffect } from 'react';
 
+const SearchAndFiltersBar = ({ searchQuery, setSearchQuery, isSearchFocused, setIsSearchFocused, categories, selectedCategory, setSelectedCategory, activeTabFilter, setActiveTabFilter }) => (
+  <div style={{ width: '100%', maxWidth: '650px', margin: '0 0 28px auto', display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-end' }}>
+    
+    {/* Filtre principal : Tout / Matériel / Livres Numériques */}
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      <button
+        onClick={() => { setActiveTabFilter('all'); setSelectedCategory('Toutes'); }}
+        style={{
+          padding: '8px 16px',
+          borderRadius: '9999px',
+          border: activeTabFilter === 'all' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+          backgroundColor: activeTabFilter === 'all' ? '#eff6ff' : '#ffffff',
+          color: activeTabFilter === 'all' ? '#1d4ed8' : '#475569',
+          fontWeight: '700',
+          fontSize: '13px',
+          cursor: 'pointer'
+        }}
+      >
+        ✨ Tout le catalogue
+      </button>
+      <button
+        onClick={() => { setActiveTabFilter('physical'); setSelectedCategory('Toutes'); }}
+        style={{
+          padding: '8px 16px',
+          borderRadius: '9999px',
+          border: activeTabFilter === 'physical' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+          backgroundColor: activeTabFilter === 'physical' ? '#eff6ff' : '#ffffff',
+          color: activeTabFilter === 'physical' ? '#1d4ed8' : '#475569',
+          fontWeight: '700',
+          fontSize: '13px',
+          cursor: 'pointer'
+        }}
+      >
+        💻 Matériel Informatique
+      </button>
+      <button
+        onClick={() => { setActiveTabFilter('digital'); setSelectedCategory('Toutes'); }}
+        style={{
+          padding: '8px 16px',
+          borderRadius: '9999px',
+          border: activeTabFilter === 'digital' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+          backgroundColor: activeTabFilter === 'digital' ? '#eff6ff' : '#ffffff',
+          color: activeTabFilter === 'digital' ? '#1d4ed8' : '#475569',
+          fontWeight: '700',
+          fontSize: '13px',
+          cursor: 'pointer'
+        }}
+      >
+        📚 Livres Numériques (E-books)
+      </button>
+    </div>
+
+    {/* Barre de recherche */}
+    <div style={{ position: 'relative', width: '100%' }}>
+      <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </div>
+
+      <input
+        type="text"
+        placeholder="Rechercher un accessoire ou un livre (ex: clavier, python, comptabilité...)"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        onFocus={() => setIsSearchFocused(true)}
+        onBlur={() => setIsSearchFocused(false)}
+        style={{
+          width: '100%',
+          padding: '13px 42px 13px 46px',
+          borderRadius: '9999px',
+          border: isSearchFocused ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+          fontSize: '14px',
+          color: '#0f172a',
+          boxSizing: 'border-box',
+          backgroundColor: '#ffffff',
+          boxShadow: isSearchFocused ? '0 6px 18px rgba(37, 99, 235, 0.14)' : '0 4px 12px rgba(15, 23, 42, 0.05)',
+          outline: 'none',
+          transition: 'all 0.2s ease'
+        }}
+      />
+
+      {searchQuery && (
+        <button
+          type="button"
+          onClick={() => setSearchQuery('')}
+          style={{
+            position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+            background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '24px', height: '24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
+          }}
+        >
+          ✕
+        </button>
+      )}
+    </div>
+
+    {/* Sous-catégories dynamiques */}
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      {categories.map((cat) => (
+        <button
+          key={cat}
+          onClick={() => setSelectedCategory(cat)}
+          style={{
+            padding: '6px 14px',
+            borderRadius: '9999px',
+            border: selectedCategory === cat ? '1px solid #2563eb' : '1px solid #e2e8f0',
+            backgroundColor: selectedCategory === cat ? '#2563eb' : '#ffffff',
+            color: selectedCategory === cat ? '#ffffff' : '#475569',
+            fontWeight: '600',
+            fontSize: '12.5px',
+            cursor: 'pointer',
+            boxShadow: selectedCategory === cat ? '0 2px 8px rgba(37, 99, 235, 0.25)' : '0 1px 3px rgba(0,0,0,0.03)',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          {cat}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
 function App() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -9,8 +133,7 @@ function App() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  // Auth & Modale
-  const [authMode, setAuthMode] = useState('login'); // 'login', 'register', 'forgot'
+  const [authMode, setAuthMode] = useState('login');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,22 +141,21 @@ function App() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [newForgotPass, setNewForgotPass] = useState('');
 
-  // Gestion des 3 essais et du compte à rebours 10s côté React
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutTimer, setLockoutTimer] = useState(0);
   const [blockedMessage, setBlockedMessage] = useState(null);
 
-  // Visibilité mots de passe
   const [showPassword, setShowPassword] = useState(false);
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
-  // Recherche et Filtres Boutique (Texte en NOIR)
+  // Recherche, Catégories & Filtre Type de Service ('all', 'physical', 'digital')
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Toutes');
+  const [activeTabFilter, setActiveTabFilter] = useState('all');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
-  // Panier, Commandes & Réservations Client
   const [cart, setCart] = useState(() => {
     const savedCart = localStorage.getItem('techsetup_cart');
     return savedCart ? JSON.parse(savedCart) : [];
@@ -41,21 +163,28 @@ function App() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [clientOrders, setClientOrders] = useState([]);
   const [clientReservations, setClientReservations] = useState([]);
-  const [clientTab, setClientTab] = useState('shop'); // 'shop', 'orders', 'reservations', 'settings'
+  const [clientTab, setClientTab] = useState('shop');
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
 
-  // Modale de Réservation
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [productToReserve, setProductToReserve] = useState(null);
   const [depositAmount, setDepositAmount] = useState('');
 
   // Admin states
   const [adminTab, setAdminTab] = useState('products');
-  const [newProduct, setNewProduct] = useState({ name: '', category: '', price: '', description: '', image_url: '', stock: 10 });
+  const [newProduct, setNewProduct] = useState({
+    product_type: 'physical',
+    name: '',
+    category: '',
+    price: '',
+    description: '',
+    image_url: '',
+    file_url: '',
+    stock: 10
+  });
   const [editingProduct, setEditingProduct] = useState(null);
   const [usersList, setUsersList] = useState([]);
 
-  // Compte à rebours automatique
   useEffect(() => {
     if (lockoutTimer <= 0) return;
     const timer = setInterval(() => {
@@ -122,24 +251,29 @@ function App() {
     }
   }, [currentUser]);
 
-  // Logique de Filtrage et Recherche
-  const categories = ['Toutes', ...new Set(products.map((p) => p.category).filter(Boolean))];
+  // Extraction dynamique des catégories selon l'onglet actif (Matériel ou Livres)
+  const availableProductsForCategories = products.filter(p => {
+    if (activeTabFilter === 'physical') return p.product_type === 'physical';
+    if (activeTabFilter === 'digital') return p.product_type === 'digital';
+    return true;
+  });
+  const categories = ['Toutes', ...new Set(availableProductsForCategories.map((p) => p.category).filter(Boolean))];
 
+  // Filtrage global des produits
   const filteredProducts = products.filter((product) => {
+    const matchesTab = activeTabFilter === 'all' || product.product_type === activeTabFilter;
     const matchesCategory = selectedCategory === 'Toutes' || product.category === selectedCategory;
     const query = searchQuery.toLowerCase().trim();
     const matchesSearch =
       product.name.toLowerCase().includes(query) ||
       (product.description && product.description.toLowerCase().includes(query));
 
-    return matchesCategory && matchesSearch;
+    return matchesTab && matchesCategory && matchesSearch;
   });
 
-  // Connexion
   const handleLogin = (e) => {
     e.preventDefault();
     if (lockoutTimer > 0) return;
-
     setBlockedMessage(null);
 
     fetch('http://localhost:5000/api/login', {
@@ -155,9 +289,7 @@ function App() {
           } else {
             const newAttempts = failedAttempts + 1;
             setFailedAttempts(newAttempts);
-            if (newAttempts >= 3) {
-              setLockoutTimer(10);
-            }
+            if (newAttempts >= 3) setLockoutTimer(10);
           }
           return;
         }
@@ -222,6 +354,10 @@ function App() {
   };
 
   const openReserveModal = (product) => {
+    if (product.product_type === 'digital') {
+      alert("Ce produit est un livre numérique et s'achète directement sans réservation.");
+      return;
+    }
     if (product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
       return;
@@ -272,12 +408,10 @@ function App() {
       .catch((err) => console.error(err));
   };
 
-  // Annulation de réservation avec avertissement non-remboursable
   const handleCancelReservation = (reservationId) => {
     const confirmation = window.confirm(
       "⚠️ Attention : Êtes-vous sûr de vouloir annuler cette réservation ?\n\nConformément aux conditions générales, le montant de l'acompte versé ne vous sera PAS remboursé."
     );
-
     if (!confirmation) return;
 
     fetch('http://localhost:5000/api/reservations/cancel', {
@@ -287,9 +421,8 @@ function App() {
     })
       .then((res) => res.json())
       .then((data) => {
-        if (data.error) {
-          alert(data.error);
-        } else {
+        if (data.error) alert(data.error);
+        else {
           alert(data.message);
           fetchClientReservations();
           fetchProducts();
@@ -299,7 +432,7 @@ function App() {
   };
 
   const addToCart = (product) => {
-    if (product.stock <= 0) {
+    if (product.product_type === 'physical' && product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
       return;
     }
@@ -325,7 +458,7 @@ function App() {
       .then((data) => {
         if (data.error) alert(data.error);
         else {
-          alert('Commande validée avec succès !');
+          alert('Commande validée avec succès ! Les accès aux livres numériques sont désormais actifs dans votre espace.');
           setCart([]);
           localStorage.removeItem('techsetup_cart');
           setIsCartOpen(false);
@@ -364,7 +497,11 @@ function App() {
     fetch('http://localhost:5000/api/products', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newProduct)
-    }).then(() => { alert('Produit ajouté !'); setNewProduct({ name: '', category: '', price: '', description: '', image_url: '', stock: 10 }); fetchProducts(); });
+    }).then(() => {
+      alert('Article ajouté avec succès !');
+      setNewProduct({ product_type: 'physical', name: '', category: '', price: '', description: '', image_url: '', file_url: '', stock: 10 });
+      fetchProducts();
+    });
   };
 
   const handleUpdateProduct = (e) => {
@@ -372,11 +509,11 @@ function App() {
     fetch(`http://localhost:5000/api/products/${editingProduct.id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editingProduct)
-    }).then(() => { alert('Mis à jour !'); setEditingProduct(null); fetchProducts(); });
+    }).then(() => { alert('Article mis à jour !'); setEditingProduct(null); fetchProducts(); });
   };
 
   const handleDeleteProduct = (id) => {
-    if (window.confirm("Supprimer ce produit ?")) {
+    if (window.confirm("Supprimer cet article ?")) {
       fetch(`http://localhost:5000/api/products/${id}`, { method: 'DELETE' }).then(() => fetchProducts());
     }
   };
@@ -611,7 +748,10 @@ function App() {
                 <div key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
                   <div>
                     <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#1e293b' }}>{item.name}</h4>
-                    <span style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold' }}>${Number(item.price).toFixed(2)}</span>
+                    <span style={{ fontSize: '11px', backgroundColor: item.product_type === 'digital' ? '#f3e8ff' : '#eff6ff', color: item.product_type === 'digital' ? '#7e22ce' : '#1d4ed8', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                      {item.product_type === 'digital' ? '📚 E-book' : '💻 Matériel'}
+                    </span>
+                    <div style={{ fontSize: '13px', color: '#2563eb', fontWeight: 'bold', marginTop: '2px' }}>${Number(item.price).toFixed(2)}</div>
                   </div>
                   <button onClick={() => removeFromCart(index)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>Retirer</button>
                 </div>
@@ -621,7 +761,7 @@ function App() {
           {cart.length > 0 && (
             <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontSize: '16px', fontWeight: 'bold' }}><span>Total :</span><span style={{ color: '#2563eb' }}>${totalPrice.toFixed(2)}</span></div>
-              <button onClick={handleCheckout} style={{ width: '100%', background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Commander</button>
+              <button onClick={handleCheckout} style={{ width: '100%', background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Valider la commande</button>
             </div>
           )}
         </div>
@@ -636,60 +776,95 @@ function App() {
             <h2 style={{ marginBottom: '20px', fontSize: '22px', color: '#1e293b' }}>⚙️ Espace Administrateur</h2>
             
             <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap' }}>
-              <button onClick={() => setAdminTab('products')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'products' ? '#2563eb' : '#f1f5f9', color: adminTab === 'products' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>➕ Ajouter un Produit</button>
-              <button onClick={() => setAdminTab('stock')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'stock' ? '#2563eb' : '#f1f5f9', color: adminTab === 'stock' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>📦 Stocks & Produits</button>
+              <button onClick={() => setAdminTab('products')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'products' ? '#2563eb' : '#f1f5f9', color: adminTab === 'products' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>➕ Ajouter un Article</button>
+              <button onClick={() => setAdminTab('stock')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'stock' ? '#2563eb' : '#f1f5f9', color: adminTab === 'stock' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>📦 Catalogue & Stocks</button>
               <button onClick={() => setAdminTab('users')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'users' ? '#2563eb' : '#f1f5f9', color: adminTab === 'users' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>👥 Clients & VIP ({totalFideles})</button>
               <button onClick={() => setAdminTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'settings' ? '#2563eb' : '#f1f5f9', color: adminTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>🔒 Sécurité</button>
             </div>
 
             {adminTab === 'products' && (
               <form onSubmit={handleCreateProduct} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <h3 style={{ fontSize: '16px', marginBottom: '5px' }}>Publier un nouvel article</h3>
+                <h3 style={{ fontSize: '16px', marginBottom: '5px' }}>Publier un nouvel article ou service numérique</h3>
+                
                 <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Nom du produit</label>
-                  <input type="text" placeholder="Ex: Clavier Mécanique" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                  <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Type d'article</label>
+                  <select
+                    value={newProduct.product_type}
+                    onChange={(e) => setNewProduct({ ...newProduct, product_type: e.target.value })}
+                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', backgroundColor: '#fff', fontSize: '14px', fontWeight: 'bold' }}
+                  >
+                    <option value="physical">💻 Matériel Informatique (Physique)</option>
+                    <option value="digital">📚 Livre Numérique / E-book (Numérique)</option>
+                  </select>
                 </div>
+
+                <div>
+                  <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Nom de l'article</label>
+                  <input type="text" placeholder="Ex: Clavier Mécanique ou Maîtriser Python" value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
                   <div>
                     <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Catégorie</label>
-                    <input type="text" placeholder="Ex: Périphériques" value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    <input type="text" placeholder={newProduct.product_type === 'digital' ? "Ex: Informatique, Comptabilité, Dev Personnel" : "Ex: Périphériques"} value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
                   </div>
                   <div>
                     <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Prix ($)</label>
-                    <input type="number" step="0.01" placeholder="89.99" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    <input type="number" step="0.01" placeholder="29.99" value={newProduct.price} onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
                   </div>
-                  <div>
-                    <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Stock initial</label>
-                    <input type="number" placeholder="10" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
-                  </div>
+                  {newProduct.product_type === 'physical' && (
+                    <div>
+                      <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Stock initial</label>
+                      <input type="number" placeholder="10" value={newProduct.stock} onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                    </div>
+                  )}
                 </div>
+
                 <div>
                   <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Description</label>
-                  <textarea placeholder="Description..." value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} rows="3" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                  <textarea placeholder="Description détaillée..." value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} rows="3" style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
                 </div>
+
                 <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>URL de l'image</label>
+                  <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>URL de l'image de couverture</label>
                   <input type="url" placeholder="https://..." value={newProduct.image_url} onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
                 </div>
-                <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Publier le produit</button>
+
+                {newProduct.product_type === 'digital' && (
+                  <div>
+                    <label style={{ display: 'block', fontWeight: 'bold', fontSize: '13px', marginBottom: '5px' }}>Lien de téléchargement du livre (PDF/EPUB)</label>
+                    <input type="url" placeholder="https://... mon-livre.pdf" value={newProduct.file_url} onChange={(e) => setNewProduct({ ...newProduct, file_url: e.target.value })} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                  </div>
+                )}
+
+                <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Publier l'article</button>
               </form>
             )}
 
             {adminTab === 'stock' && (
               <div>
-                <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>Inventaire & Stocks</h3>
+                <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>Catalogue & Stocks</h3>
                 {editingProduct && (
                   <form onSubmit={handleUpdateProduct} style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <h4 style={{ margin: 0, color: '#2563eb' }}>Modifier : {editingProduct.name}</h4>
+                    <select value={editingProduct.product_type} onChange={(e) => setEditingProduct({ ...editingProduct, product_type: e.target.value })} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontWeight: 'bold' }}>
+                      <option value="physical">Matériel Physique</option>
+                      <option value="digital">Livre Numérique</option>
+                    </select>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <input type="text" value={editingProduct.name} onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })} placeholder="Nom" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                       <input type="text" value={editingProduct.category} onChange={(e) => setEditingProduct({ ...editingProduct, category: e.target.value })} placeholder="Catégorie" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                       <input type="number" step="0.01" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: e.target.value })} placeholder="Prix" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                      <input type="number" value={editingProduct.stock} onChange={(e) => setEditingProduct({ ...editingProduct, stock: e.target.value })} placeholder="Stock" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                      {editingProduct.product_type === 'physical' && (
+                        <input type="number" value={editingProduct.stock} onChange={(e) => setEditingProduct({ ...editingProduct, stock: e.target.value })} placeholder="Stock" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                      )}
                     </div>
                     <input type="url" value={editingProduct.image_url} onChange={(e) => setEditingProduct({ ...editingProduct, image_url: e.target.value })} placeholder="URL Image" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                    {editingProduct.product_type === 'digital' && (
+                      <input type="url" value={editingProduct.file_url || ''} onChange={(e) => setEditingProduct({ ...editingProduct, file_url: e.target.value })} placeholder="Lien du fichier E-book" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                    )}
                     <textarea value={editingProduct.description} onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })} placeholder="Description" rows="2" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button type="submit" style={{ background: '#16a34a', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Enregistrer</button>
@@ -701,10 +876,10 @@ function App() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b' }}>
-                        <th style={{ padding: '10px' }}>Produit</th>
+                        <th style={{ padding: '10px' }}>Article</th>
+                        <th style={{ padding: '10px' }}>Type</th>
                         <th style={{ padding: '10px' }}>Prix</th>
-                        <th style={{ padding: '10px' }}>Stock</th>
-                        <th style={{ padding: '10px' }}>Alerte</th>
+                        <th style={{ padding: '10px' }}>Stock / Accès</th>
                         <th style={{ padding: '10px' }}>Actions</th>
                       </tr>
                     </thead>
@@ -712,14 +887,14 @@ function App() {
                       {products.map((p) => (
                         <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '10px', fontWeight: '500' }}>{p.name}</td>
-                          <td style={{ padding: '10px' }}>${Number(p.price).toFixed(2)}</td>
-                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{p.stock}</td>
                           <td style={{ padding: '10px' }}>
-                            {p.stock < 5 ? (
-                              <span style={{ backgroundColor: '#fee2e2', color: '#dc2626', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>⚠️ Rupture imminente</span>
-                            ) : (
-                              <span style={{ backgroundColor: '#dcfce7', color: '#15803d', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>OK</span>
-                            )}
+                            <span style={{ fontSize: '11px', backgroundColor: p.product_type === 'digital' ? '#f3e8ff' : '#eff6ff', color: p.product_type === 'digital' ? '#7e22ce' : '#1d4ed8', padding: '3px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                              {p.product_type === 'digital' ? 'E-book' : 'Matériel'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px' }}>${Number(p.price).toFixed(2)}</td>
+                          <td style={{ padding: '10px', fontWeight: 'bold' }}>
+                            {p.product_type === 'digital' ? 'Illimité (Numérique)' : p.stock}
                           </td>
                           <td style={{ padding: '10px', display: 'flex', gap: '6px' }}>
                             <button onClick={() => setEditingProduct(p)} style={{ background: '#e0f2fe', color: '#0369a1', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>Modifier</button>
@@ -826,7 +1001,7 @@ function App() {
           /* ================= ESPACE CLIENT CONNECTÉ ================= */
           <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap' }}>
-              <button onClick={() => setClientTab('shop')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'shop' ? '#2563eb' : '#ffffff', color: clientTab === 'shop' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🛍️ Boutique</button>
+              <button onClick={() => setClientTab('shop')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'shop' ? '#2563eb' : '#ffffff', color: clientTab === 'shop' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🛍️ Boutique & E-books</button>
               <button onClick={() => setClientTab('orders')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'orders' ? '#2563eb' : '#ffffff', color: clientTab === 'orders' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>📦 Mes Commandes ({clientOrders.length})</button>
               <button onClick={() => { setClientTab('reservations'); fetchClientReservations(); }} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'reservations' ? '#2563eb' : '#ffffff', color: clientTab === 'reservations' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>⏳ Mes Réservations ({clientReservations.length})</button>
               <button onClick={() => setClientTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'settings' ? '#2563eb' : '#ffffff', color: clientTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🔒 Mon Compte & Sécurité</button>
@@ -834,69 +1009,28 @@ function App() {
 
             {clientTab === 'shop' && (
               <div>
+                <SearchAndFiltersBar
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  isSearchFocused={isSearchFocused}
+                  setIsSearchFocused={setIsSearchFocused}
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                  activeTabFilter={activeTabFilter}
+                  setActiveTabFilter={setActiveTabFilter}
+                />
+
                 <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-                  <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px' }}>Booste ton espace de travail</h1>
-                  <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
-                </div>
-
-                {/* Barre de recherche et Filtres par catégorie (Texte en NOIR) */}
-                <div style={{ maxWidth: '700px', margin: '0 auto 30px auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type="text"
-                      placeholder="Rechercher un accessoire (ex: clavier, chargeur, lampe...)"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '12px 40px 12px 16px',
-                        borderRadius: '10px',
-                        border: '1px solid #cbd5e1',
-                        fontSize: '14px',
-                        color: '#1e293b', // Texte en noir/sombre
-                        boxSizing: 'border-box',
-                        backgroundColor: '#ffffff',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
-                      }}
-                    />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={() => setSearchQuery('')}
-                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    {categories.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => setSelectedCategory(cat)}
-                        style={{
-                          padding: '7px 15px',
-                          borderRadius: '20px',
-                          border: selectedCategory === cat ? 'none' : '1px solid #cbd5e1',
-                          backgroundColor: selectedCategory === cat ? '#2563eb' : '#ffffff',
-                          color: selectedCategory === cat ? '#ffffff' : '#475569',
-                          fontWeight: '600',
-                          fontSize: '13px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
+                  <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px', color: '#3b82f6', fontWeight: '800' }}>Booste ton espace de travail & compétences</h1>
+                  <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Équipements informatiques ou livres numériques (informatique, comptabilité, développement personnel).</p>
                 </div>
 
                 {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : filteredProducts.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
-                    <p style={{ fontSize: '16px', marginBottom: '12px' }}>Aucun produit ne correspond à votre recherche.</p>
+                    <p style={{ fontSize: '16px', marginBottom: '12px' }}>Aucun article ne correspond à votre recherche.</p>
                     <button
-                      onClick={() => { setSearchQuery(''); setSelectedCategory('Toutes'); }}
+                      onClick={() => { setSearchQuery(''); setSelectedCategory('Toutes'); setActiveTabFilter('all'); }}
                       style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                     >
                       Réinitialiser les filtres
@@ -904,26 +1038,39 @@ function App() {
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '24px', width: '100%' }}>
-                    {filteredProducts.map((product) => (
-                      <div key={product.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ height: '200px', backgroundColor: '#e2e8f0', backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                          <span style={{ fontSize: '11px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '4px 8px', borderRadius: '6px', width: 'fit-content', fontWeight: 'bold', marginBottom: '10px' }}>{product.category}</span>
-                          <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a' }}>{product.name}</h3>
-                          <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.5', marginBottom: '10px', flexGrow: 1 }}>{product.description}</p>
-                          <p style={{ fontSize: '13px', fontWeight: 'bold', color: product.stock > 0 ? '#15803d' : '#dc2626', marginBottom: '15px' }}>
-                            {product.stock > 0 ? `Stock : ${product.stock} dispo` : 'Rupture de stock'}
-                          </p>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '8px', flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>${Number(product.price).toFixed(2)}</span>
-                            <div style={{ display: 'flex', gap: '6px' }}>
-                              <button onClick={() => openReserveModal(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#f1f5f9' : '#e2e8f0', color: product.stock > 0 ? '#0f172a' : '#94a3b8', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Réserver</button>
-                              <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Ajouter</button>
+                    {filteredProducts.map((product) => {
+                      const isDigital = product.product_type === 'digital';
+                      return (
+                        <div key={product.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
+                          <div style={{ height: '200px', backgroundColor: '#e2e8f0', backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }}>
+                            <span style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '11px', backgroundColor: isDigital ? '#7e22ce' : '#1d4ed8', color: '#ffffff', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                              {isDigital ? '📚 E-book' : '💻 Matériel'}
+                            </span>
+                          </div>
+                          <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                            <span style={{ fontSize: '11px', backgroundColor: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '6px', width: 'fit-content', fontWeight: '600', marginBottom: '8px' }}>{product.category}</span>
+                            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a' }}>{product.name}</h3>
+                            <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.5', marginBottom: '10px', flexGrow: 1 }}>{product.description}</p>
+                            
+                            <p style={{ fontSize: '13px', fontWeight: 'bold', color: isDigital ? '#7e22ce' : (product.stock > 0 ? '#15803d' : '#dc2626'), marginBottom: '15px' }}>
+                              {isDigital ? '⚡ Accès numérique immédiat' : (product.stock > 0 ? `Stock : ${product.stock} dispo` : 'Rupture de stock')}
+                            </p>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>${Number(product.price).toFixed(2)}</span>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {!isDigital && (
+                                  <button onClick={() => openReserveModal(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#f1f5f9' : '#e2e8f0', color: product.stock > 0 ? '#0f172a' : '#94a3b8', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Réserver</button>
+                                )}
+                                <button onClick={() => addToCart(product)} disabled={!isDigital && product.stock <= 0} style={{ background: !isDigital && product.stock <= 0 ? '#94a3b8' : '#2563eb', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                                  {isDigital ? 'Acheter' : 'Ajouter'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -931,7 +1078,7 @@ function App() {
 
             {clientTab === 'orders' && (
               <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ marginBottom: '20px' }}>Historique de mes Commandes</h3>
+                <h3 style={{ marginBottom: '20px' }}>Historique de mes Commandes & E-books</h3>
                 {clientOrders.length === 0 ? (
                   <p style={{ color: '#64748b' }}>Vous n'avez pas encore passé de commande.</p>
                 ) : (
@@ -944,7 +1091,7 @@ function App() {
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <span style={{ fontSize: '16px', fontWeight: 'bold', color: '#0f172a' }}>${Number(order.total_amount).toFixed(2)}</span>
-                          <div style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', fontWeight: 'bold' }}>Validée & Payée</div>
+                          <div style={{ fontSize: '11px', backgroundColor: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', fontWeight: 'bold' }}>Payée & Validée</div>
                         </div>
                       </div>
                     ))}
@@ -955,7 +1102,7 @@ function App() {
 
             {clientTab === 'reservations' && (
               <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ marginBottom: '8px' }}>Mes Réservations (Délai 72h)</h3>
+                <h3 style={{ marginBottom: '8px' }}>Mes Réservations de Matériel (Délai 72h)</h3>
                 <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
                   Toute réservation non soldée dans les 72 heures est automatiquement annulée. Vous pouvez aussi annuler manuellement (l'acompte ne sera pas remboursé).
                 </p>
@@ -987,10 +1134,7 @@ function App() {
                             </span>
 
                             {isActive && (
-                              <button
-                                onClick={() => handleCancelReservation(resv.id)}
-                                style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #f87171', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
-                              >
+                              <button onClick={() => handleCancelReservation(resv.id)} style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #f87171', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}>
                                 Annuler
                               </button>
                             )}
@@ -1040,69 +1184,28 @@ function App() {
         ) : (
           /* ================= BOUTIQUE VISITEUR ================= */
           <div style={{ width: '100%' }}>
+            <SearchAndFiltersBar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              isSearchFocused={isSearchFocused}
+              setIsSearchFocused={setIsSearchFocused}
+              categories={categories}
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
+              activeTabFilter={activeTabFilter}
+              setActiveTabFilter={setActiveTabFilter}
+            />
+
             <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-              <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px' }}>Booste ton espace de travail</h1>
-              <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
-            </div>
-
-            {/* Barre de recherche et Filtres par catégorie (Texte en NOIR) */}
-            <div style={{ maxWidth: '700px', margin: '0 auto 30px auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type="text"
-                  placeholder="Rechercher un accessoire (ex: clavier, chargeur, lampe...)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 40px 12px 16px',
-                    borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '14px',
-                    color: '#1e293b', // Texte en noir/sombre
-                    boxSizing: 'border-box',
-                    backgroundColor: '#ffffff',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    style={{
-                      padding: '7px 15px',
-                      borderRadius: '20px',
-                      border: selectedCategory === cat ? 'none' : '1px solid #cbd5e1',
-                      backgroundColor: selectedCategory === cat ? '#2563eb' : '#ffffff',
-                      color: selectedCategory === cat ? '#ffffff' : '#475569',
-                      fontWeight: '600',
-                      fontSize: '13px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+              <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px', color: '#3b82f6', fontWeight: '800' }}>Booste ton espace de travail & compétences</h1>
+              <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Équipements informatiques ou livres numériques (informatique, comptabilité, développement personnel).</p>
             </div>
 
             {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : filteredProducts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
-                <p style={{ fontSize: '16px', marginBottom: '12px' }}>Aucun produit ne correspond à votre recherche.</p>
+                <p style={{ fontSize: '16px', marginBottom: '12px' }}>Aucun article ne correspond à votre recherche.</p>
                 <button
-                  onClick={() => { setSearchQuery(''); setSelectedCategory('Toutes'); }}
+                  onClick={() => { setSearchQuery(''); setSelectedCategory('Toutes'); setActiveTabFilter('all'); }}
                   style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
                 >
                   Réinitialiser les filtres
@@ -1110,26 +1213,39 @@ function App() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '24px', width: '100%' }}>
-                {filteredProducts.map((product) => (
-                  <div key={product.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ height: '200px', backgroundColor: '#e2e8f0', backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-                    <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                      <span style={{ fontSize: '11px', backgroundColor: '#eff6ff', color: '#1d4ed8', padding: '4px 8px', borderRadius: '6px', width: 'fit-content', fontWeight: 'bold', marginBottom: '10px' }}>{product.category}</span>
-                      <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a' }}>{product.name}</h3>
-                      <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.5', marginBottom: '10px', flexGrow: 1 }}>{product.description}</p>
-                      <p style={{ fontSize: '13px', fontWeight: 'bold', color: product.stock > 0 ? '#15803d' : '#dc2626', marginBottom: '15px' }}>
-                        {product.stock > 0 ? `Stock : ${product.stock} dispo` : 'Rupture de stock'}
-                      </p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>${Number(product.price).toFixed(2)}</span>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => openReserveModal(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#f1f5f9' : '#e2e8f0', color: product.stock > 0 ? '#0f172a' : '#94a3b8', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Réserver</button>
-                          <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '14px' }}>Ajouter</button>
+                {filteredProducts.map((product) => {
+                  const isDigital = product.product_type === 'digital';
+                  return (
+                    <div key={product.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ height: '200px', backgroundColor: '#e2e8f0', backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }}>
+                        <span style={{ position: 'absolute', top: '10px', left: '10px', fontSize: '11px', backgroundColor: isDigital ? '#7e22ce' : '#1d4ed8', color: '#ffffff', padding: '4px 8px', borderRadius: '6px', fontWeight: 'bold' }}>
+                          {isDigital ? '📚 E-book' : '💻 Matériel'}
+                        </span>
+                      </div>
+                      <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                        <span style={{ fontSize: '11px', backgroundColor: '#f1f5f9', color: '#475569', padding: '3px 8px', borderRadius: '6px', width: 'fit-content', fontWeight: '600', marginBottom: '8px' }}>{product.category}</span>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#0f172a' }}>{product.name}</h3>
+                        <p style={{ color: '#64748b', fontSize: '14px', lineHeight: '1.5', marginBottom: '10px', flexGrow: 1 }}>{product.description}</p>
+                        
+                        <p style={{ fontSize: '13px', fontWeight: 'bold', color: isDigital ? '#7e22ce' : (product.stock > 0 ? '#15803d' : '#dc2626'), marginBottom: '15px' }}>
+                          {isDigital ? '⚡ Accès numérique immédiat' : (product.stock > 0 ? `Stock : ${product.stock} dispo` : 'Rupture de stock')}
+                        </p>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>${Number(product.price).toFixed(2)}</span>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            {!isDigital && (
+                              <button onClick={() => openReserveModal(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#f1f5f9' : '#e2e8f0', color: product.stock > 0 ? '#0f172a' : '#94a3b8', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Réserver</button>
+                            )}
+                            <button onClick={() => addToCart(product)} disabled={!isDigital && product.stock <= 0} style={{ background: !isDigital && product.stock <= 0 ? '#94a3b8' : '#2563eb', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+                              {isDigital ? 'Acheter' : 'Ajouter'}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

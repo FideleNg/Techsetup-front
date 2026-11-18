@@ -29,6 +29,10 @@ function App() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
+  // Recherche et Filtres Boutique
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Toutes');
+
   // Panier, Commandes & Réservations Client
   const [cart, setCart] = useState(() => {
     const savedCart = localStorage.getItem('techsetup_cart');
@@ -103,7 +107,7 @@ function App() {
         .then((res) => res.json())
         .then((data) => {
           setClientReservations(data);
-          fetchProducts(); // Rafraîchir les stocks si une réservation a expiré
+          fetchProducts();
         })
         .catch((err) => console.error('Erreur réservations :', err));
     }
@@ -117,6 +121,19 @@ function App() {
       fetchClientReservations();
     }
   }, [currentUser]);
+
+  // Logique de Filtrage et Recherche
+  const categories = ['Toutes', ...new Set(products.map((p) => p.category).filter(Boolean))];
+
+  const filteredProducts = products.filter((product) => {
+    const matchesCategory = selectedCategory === 'Toutes' || product.category === selectedCategory;
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      product.name.toLowerCase().includes(query) ||
+      (product.description && product.description.toLowerCase().includes(query));
+
+    return matchesCategory && matchesSearch;
+  });
 
   // Connexion
   const handleLogin = (e) => {
@@ -204,7 +221,6 @@ function App() {
     localStorage.removeItem('techsetup_user');
   };
 
-  // Réservation d'un produit (conditions 10% + 72h)
   const openReserveModal = (product) => {
     if (product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
@@ -256,7 +272,6 @@ function App() {
       .catch((err) => console.error(err));
   };
 
-  // Panier & Commande
   const addToCart = (product) => {
     if (product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
@@ -318,7 +333,6 @@ function App() {
       });
   };
 
-  // Actions Admin
   const handleCreateProduct = (e) => {
     e.preventDefault();
     fetch('http://localhost:5000/api/products', {
@@ -398,7 +412,7 @@ function App() {
         </div>
       </header>
 
-      {/* Modal Réservation (Acompte 10% min + Délai 72h) */}
+      {/* Modal Réservation */}
       {isReserveModalOpen && productToReserve && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '15px', boxSizing: 'border-box' }}>
           <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '440px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.25)' }}>
@@ -409,20 +423,19 @@ function App() {
               Article : <strong>{productToReserve.name}</strong> — Prix total : <strong style={{ color: '#2563eb' }}>${Number(productToReserve.price).toFixed(2)}</strong>
             </p>
 
-            {/* Encadré des conditions obligatoires */}
             <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', padding: '14px', borderRadius: '8px', marginBottom: '18px', color: '#92400e', fontSize: '13px', lineHeight: '1.5' }}>
               <strong style={{ display: 'block', marginBottom: '6px', fontSize: '14px' }}>⚠️ Conditions importantes de réservation :</strong>
               <ul style={{ margin: '0 0 0 18px', padding: 0 }}>
-                <li>Vous devez verser un acompte minimum de <strong>10 %</strong> du prix total (soit <strong>${(Number(productToReserve.price) * 0.10).toFixed(2)}</strong> minimum).</li>
-                <li>La réservation est valable pendant un délai strict de <strong>72 heures (3 jours)</strong>.</li>
-                <li>Si le solde restant n'est pas payé avant l'expiration des 72h, la réservation sera <strong>automatiquement annulée</strong> et l'article remis en vente.</li>
+                <li>Acompte minimum de <strong>10 %</strong> (soit <strong>${(Number(productToReserve.price) * 0.10).toFixed(2)}</strong>).</li>
+                <li>Validité stricte de <strong>72 heures (3 jours)</strong>.</li>
+                <li>Passé ce délai sans solde, la réservation est automatiquement annulée.</li>
               </ul>
             </div>
 
             <form onSubmit={handleCreateReservation} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>
-                  Montant de l'acompte à payer maintenant ($)
+                  Montant de l'acompte à payer ($)
                 </label>
                 <input
                   type="number"
@@ -795,13 +808,76 @@ function App() {
 
             {clientTab === 'shop' && (
               <div>
-                <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+                <div style={{ textAlign: 'center', marginBottom: '25px' }}>
                   <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px' }}>Booste ton espace de travail</h1>
                   <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
                 </div>
-                {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : (
+
+                {/* Barre de recherche et Filtres par catégorie */}
+                <div style={{ maxWidth: '700px', margin: '0 auto 30px auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="Rechercher un accessoire (ex: clavier, chargeur, lampe...)"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '12px 40px 12px 16px',
+                        borderRadius: '10px',
+                        border: '1px solid #cbd5e1',
+                        fontSize: '14px',
+                        boxSizing: 'border-box',
+                        backgroundColor: '#ffffff',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
+                      }}
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        style={{
+                          padding: '7px 15px',
+                          borderRadius: '20px',
+                          border: selectedCategory === cat ? 'none' : '1px solid #cbd5e1',
+                          backgroundColor: selectedCategory === cat ? '#2563eb' : '#ffffff',
+                          color: selectedCategory === cat ? '#ffffff' : '#475569',
+                          fontWeight: '600',
+                          fontSize: '13px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : filteredProducts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+                    <p style={{ fontSize: '16px', marginBottom: '12px' }}>Aucun produit ne correspond à votre recherche.</p>
+                    <button
+                      onClick={() => { setSearchQuery(''); setSelectedCategory('Toutes'); }}
+                      style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                    >
+                      Réinitialiser les filtres
+                    </button>
+                  </div>
+                ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '24px', width: '100%' }}>
-                    {products.map((product) => (
+                    {filteredProducts.map((product) => (
                       <div key={product.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
                         <div style={{ height: '200px', backgroundColor: '#e2e8f0', backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                         <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
@@ -875,14 +951,7 @@ function App() {
                             </span>
                           </div>
                           <div style={{ textAlign: 'right' }}>
-                            <span style={{
-                              fontSize: '12px',
-                              padding: '4px 10px',
-                              borderRadius: '6px',
-                              fontWeight: 'bold',
-                              backgroundColor: isExpired ? '#fee2e2' : '#fef3c7',
-                              color: isExpired ? '#dc2626' : '#b45309'
-                            }}>
+                            <span style={{ fontSize: '12px', padding: '4px 10px', borderRadius: '6px', fontWeight: 'bold', backgroundColor: isExpired ? '#fee2e2' : '#fef3c7', color: isExpired ? '#dc2626' : '#b45309' }}>
                               {isExpired ? 'Annulée (Délai 72h dépassé)' : 'Active (En attente du solde)'}
                             </span>
                           </div>
@@ -931,14 +1000,76 @@ function App() {
         ) : (
           /* ================= BOUTIQUE VISITEUR ================= */
           <div style={{ width: '100%' }}>
-            <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '25px' }}>
               <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px' }}>Booste ton espace de travail</h1>
               <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
             </div>
 
-            {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : (
+            {/* Barre de recherche et Filtres par catégorie */}
+            <div style={{ maxWidth: '700px', margin: '0 auto 30px auto', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="Rechercher un accessoire (ex: clavier, chargeur, lampe...)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 40px 12px 16px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    style={{
+                      padding: '7px 15px',
+                      borderRadius: '20px',
+                      border: selectedCategory === cat ? 'none' : '1px solid #cbd5e1',
+                      backgroundColor: selectedCategory === cat ? '#2563eb' : '#ffffff',
+                      color: selectedCategory === cat ? '#ffffff' : '#475569',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : filteredProducts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
+                <p style={{ fontSize: '16px', marginBottom: '12px' }}>Aucun produit ne correspond à votre recherche.</p>
+                <button
+                  onClick={() => { setSearchQuery(''); setSelectedCategory('Toutes'); }}
+                  style={{ background: '#2563eb', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  Réinitialiser les filtres
+                </button>
+              </div>
+            ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '24px', width: '100%' }}>
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <div key={product.id} style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ height: '200px', backgroundColor: '#e2e8f0', backgroundImage: `url(${product.image_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
                     <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>

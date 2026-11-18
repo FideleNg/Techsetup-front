@@ -9,19 +9,18 @@ function App() {
     return savedUser ? JSON.parse(savedUser) : null;
   });
 
-  // Modes d'authentification ('login', 'register', 'forgot')
-  const [authMode, setAuthMode] = useState('login');
+  // Auth & Modale
+  const [authMode, setAuthMode] = useState('login'); // 'login', 'register', 'forgot'
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
   const [newForgotPass, setNewForgotPass] = useState('');
+  const [blockedMessage, setBlockedMessage] = useState(null);
 
-  // États affichage mots de passe
+  // Visibilité mots de passe
   const [showPassword, setShowPassword] = useState(false);
-  const [showOldPass, setShowOldPass] = useState(false);
-  const [showNewPass, setShowNewPass] = useState(false);
 
   // Panier & Commandes Client
   const [cart, setCart] = useState(() => {
@@ -34,7 +33,7 @@ function App() {
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '' });
 
   // Admin states
-  const [adminTab, setAdminTab] = useState('products');
+  const [adminTab, setAdminTab] = useState('products'); // 'products', 'stock', 'users', 'settings'
   const [newProduct, setNewProduct] = useState({ name: '', category: '', price: '', description: '', image_url: '', stock: 10 });
   const [editingProduct, setEditingProduct] = useState(null);
   const [usersList, setUsersList] = useState([]);
@@ -69,7 +68,7 @@ function App() {
       fetch(`http://localhost:5000/api/orders/${currentUser.id}`)
         .then((res) => res.json())
         .then((data) => setClientOrders(data))
-        .catch((err) => console.error('Erreur commandes client :', err));
+        .catch((err) => console.error('Erreur commandes :', err));
     }
   };
 
@@ -79,26 +78,36 @@ function App() {
     if (currentUser?.role === 'client') fetchClientOrders();
   }, [currentUser]);
 
-  // Auth Actions
+  // Connexion sécurisée avec gestion de compte bloqué
   const handleLogin = (e) => {
     e.preventDefault();
+    setBlockedMessage(null);
+
     fetch('http://localhost:5000/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     })
-      .then((res) => res.json())
-      .then((data) => {
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          if (res.status === 403) {
+            setBlockedMessage({ error: data.error, support: data.support });
+          } else {
+            alert(data.error || 'Erreur de connexion');
+          }
+          return;
+        }
+
         if (data.user) {
           setCurrentUser(data.user);
           setIsAuthModalOpen(false);
           setShowPassword(false);
+          setBlockedMessage(null);
           alert(`Bienvenue, ${data.user.name} !`);
-        } else {
-          alert(data.error || 'Erreur de connexion');
         }
       })
-      .catch((err) => console.error(err));
+      .catch((err) => console.error('Erreur réseau :', err));
   };
 
   const handleRegister = (e) => {
@@ -145,7 +154,7 @@ function App() {
     localStorage.removeItem('techsetup_user');
   };
 
-  // Cart & Checkout
+  // Panier & Commande
   const addToCart = (product) => {
     if (product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
@@ -153,6 +162,7 @@ function App() {
     }
     setCart([...cart, product]);
   };
+
   const removeFromCart = (index) => setCart(cart.filter((_, i) => i !== index));
   const totalPrice = cart.reduce((sum, item) => sum + Number(item.price), 0);
 
@@ -173,7 +183,7 @@ function App() {
       .then((data) => {
         if (data.error) alert(data.error);
         else {
-          alert('Commande validée avec succès ! Merci.');
+          alert('Commande validée avec succès !');
           setCart([]);
           localStorage.removeItem('techsetup_cart');
           setIsCartOpen(false);
@@ -184,7 +194,6 @@ function App() {
       .catch((err) => console.error(err));
   };
 
-  // Change password for connected user (Client or Admin)
   const handleUserPasswordChange = (e) => {
     e.preventDefault();
     fetch('http://localhost:5000/api/user/password', {
@@ -198,14 +207,12 @@ function App() {
         else {
           alert(data.message);
           setPasswords({ oldPassword: '', newPassword: '' });
-          setShowOldPass(false);
-          setShowNewPass(false);
         }
       })
       .catch((err) => console.error(err));
   };
 
-  // Admin Actions Produits
+  // Actions Admin
   const handleCreateProduct = (e) => {
     e.preventDefault();
     fetch('http://localhost:5000/api/products', {
@@ -241,7 +248,7 @@ function App() {
   const handleDeleteProduct = (id) => {
     if (window.confirm("Supprimer ce produit ?")) {
       fetch(`http://localhost:5000/api/products/${id}`, { method: 'DELETE' })
-        .then(() => { fetchProducts(); })
+        .then(() => fetchProducts())
         .catch((err) => console.error(err));
     }
   };
@@ -268,7 +275,7 @@ function App() {
     )
   );
 
-  // Un client est considéré "fidèle / VIP" s'il a passé au moins 3 commandes (seuil modifiable)
+  // Seuil pour définir un client fidèle / VIP (ex: au moins 3 commandes)
   const VIP_THRESHOLD = 3;
   const totalFideles = usersList.filter(u => u.role === 'client' && u.total_orders >= VIP_THRESHOLD).length;
 
@@ -304,12 +311,20 @@ function App() {
         </div>
       </header>
 
-      {/* Modal Auth avec "Mot de passe oublié ?" */}
+      {/* Modal Authentification & Mot de passe oublié */}
       {isAuthModalOpen && !currentUser && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px', boxSizing: 'border-box' }}>
           <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '400px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
             <button onClick={() => setIsAuthModalOpen(false)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>✕</button>
             
+            {/* Message d'erreur de compte bloqué orienté Super Admin */}
+            {blockedMessage && (
+              <div style={{ backgroundColor: '#fee2e2', border: '1px solid #f87171', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#991b1b', fontSize: '13px', lineHeight: '1.4' }}>
+                <strong>{blockedMessage.error}</strong>
+                <p style={{ margin: '8px 0 0 0' }}>{blockedMessage.support}</p>
+              </div>
+            )}
+
             {authMode === 'login' && (
               <>
                 <h2 style={{ textAlign: 'center', marginBottom: '20px', fontSize: '20px' }}>Connexion</h2>
@@ -599,7 +614,7 @@ function App() {
         ) : currentUser && currentUser.role === 'client' ? (
           /* ================= ESPACE CLIENT CONNECTÉ ================= */
           <div style={{ width: '100%', maxWidth: '1000px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap' }}>
               <button onClick={() => setClientTab('shop')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: clientTab === 'shop' ? '#2563eb' : '#ffffff', color: clientTab === 'shop' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🛍️ Boutique</button>
               <button onClick={() => setClientTab('orders')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: clientTab === 'orders' ? '#2563eb' : '#ffffff', color: clientTab === 'orders' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>📦 Mes Commandes ({clientOrders.length})</button>
               <button onClick={() => setClientTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: clientTab === 'settings' ? '#2563eb' : '#ffffff', color: clientTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🔒 Mon Compte & Sécurité</button>

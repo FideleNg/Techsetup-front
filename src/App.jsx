@@ -29,15 +29,21 @@ function App() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
-  // Panier & Commandes Client
+  // Panier, Commandes & Réservations Client
   const [cart, setCart] = useState(() => {
     const savedCart = localStorage.getItem('techsetup_cart');
     return savedCart ? JSON.parse(savedCart) : [];
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [clientOrders, setClientOrders] = useState([]);
-  const [clientTab, setClientTab] = useState('shop');
+  const [clientReservations, setClientReservations] = useState([]);
+  const [clientTab, setClientTab] = useState('shop'); // 'shop', 'orders', 'reservations', 'settings'
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+
+  // Modale de Réservation (10% min, 72h max)
+  const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+  const [productToReserve, setProductToReserve] = useState(null);
+  const [depositAmount, setDepositAmount] = useState('');
 
   // Admin states
   const [adminTab, setAdminTab] = useState('products');
@@ -51,7 +57,7 @@ function App() {
     const timer = setInterval(() => {
       setLockoutTimer((prev) => {
         if (prev <= 1) {
-          setFailedAttempts(0); // Réinitialiser les essais après 10s
+          setFailedAttempts(0);
           return 0;
         }
         return prev - 1;
@@ -91,13 +97,28 @@ function App() {
     }
   };
 
+  const fetchClientReservations = () => {
+    if (currentUser && currentUser.role === 'client') {
+      fetch(`http://localhost:5000/api/reservations/${currentUser.id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          setClientReservations(data);
+          fetchProducts(); // Rafraîchir les stocks si une réservation a expiré
+        })
+        .catch((err) => console.error('Erreur réservations :', err));
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     if (currentUser?.role === 'admin') fetchUsers();
-    if (currentUser?.role === 'client') fetchClientOrders();
+    if (currentUser?.role === 'client') {
+      fetchClientOrders();
+      fetchClientReservations();
+    }
   }, [currentUser]);
 
-  // Connexion avec gestion React des 3 essais et du chrono
+  // Connexion
   const handleLogin = (e) => {
     e.preventDefault();
     if (lockoutTimer > 0) return;
@@ -115,12 +136,10 @@ function App() {
           if (res.status === 403) {
             setBlockedMessage({ error: data.error, support: data.support });
           } else {
-            // Incrémenter les échecs locaux
             const newAttempts = failedAttempts + 1;
             setFailedAttempts(newAttempts);
-
             if (newAttempts >= 3) {
-              setLockoutTimer(10); // Déclencher le blocage de 10s
+              setLockoutTimer(10);
             }
           }
           return;
@@ -185,6 +204,59 @@ function App() {
     localStorage.removeItem('techsetup_user');
   };
 
+  // Réservation d'un produit (conditions 10% + 72h)
+  const openReserveModal = (product) => {
+    if (product.stock <= 0) {
+      alert("Ce produit est en rupture de stock.");
+      return;
+    }
+    if (!currentUser) {
+      alert("Veuillez vous connecter pour réserver un produit.");
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setProductToReserve(product);
+    setDepositAmount((Number(product.price) * 0.10).toFixed(2));
+    setIsReserveModalOpen(true);
+  };
+
+  const handleCreateReservation = (e) => {
+    e.preventDefault();
+    const minDeposit = Number(productToReserve.price) * 0.10;
+    if (Number(depositAmount) < minDeposit) {
+      alert(`L'acompte obligatoire est d'au moins 10% du prix, soit $${minDeposit.toFixed(2)}.`);
+      return;
+    }
+
+    fetch('http://localhost:5000/api/reservations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        productId: productToReserve.id,
+        productName: productToReserve.name,
+        totalPrice: productToReserve.price,
+        depositPaid: Number(depositAmount)
+      })
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.error) {
+          alert(data.error);
+        } else {
+          alert(data.message);
+          setIsReserveModalOpen(false);
+          setProductToReserve(null);
+          setDepositAmount('');
+          fetchProducts();
+          fetchClientReservations();
+          setClientTab('reservations');
+        }
+      })
+      .catch((err) => console.error(err));
+  };
+
+  // Panier & Commande
   const addToCart = (product) => {
     if (product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
@@ -326,6 +398,60 @@ function App() {
         </div>
       </header>
 
+      {/* Modal Réservation (Acompte 10% min + Délai 72h) */}
+      {isReserveModalOpen && productToReserve && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '15px', boxSizing: 'border-box' }}>
+          <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '440px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.25)' }}>
+            <button onClick={() => { setIsReserveModalOpen(false); setProductToReserve(null); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>✕</button>
+            
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '20px', color: '#0f172a' }}>Réserver ce produit</h2>
+            <p style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#475569' }}>
+              Article : <strong>{productToReserve.name}</strong> — Prix total : <strong style={{ color: '#2563eb' }}>${Number(productToReserve.price).toFixed(2)}</strong>
+            </p>
+
+            {/* Encadré des conditions obligatoires */}
+            <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', padding: '14px', borderRadius: '8px', marginBottom: '18px', color: '#92400e', fontSize: '13px', lineHeight: '1.5' }}>
+              <strong style={{ display: 'block', marginBottom: '6px', fontSize: '14px' }}>⚠️ Conditions importantes de réservation :</strong>
+              <ul style={{ margin: '0 0 0 18px', padding: 0 }}>
+                <li>Vous devez verser un acompte minimum de <strong>10 %</strong> du prix total (soit <strong>${(Number(productToReserve.price) * 0.10).toFixed(2)}</strong> minimum).</li>
+                <li>La réservation est valable pendant un délai strict de <strong>72 heures (3 jours)</strong>.</li>
+                <li>Si le solde restant n'est pas payé avant l'expiration des 72h, la réservation sera <strong>automatiquement annulée</strong> et l'article remis en vente.</li>
+              </ul>
+            </div>
+
+            <form onSubmit={handleCreateReservation} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>
+                  Montant de l'acompte à payer maintenant ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={(Number(productToReserve.price) * 0.10).toFixed(2)}
+                  max={Number(productToReserve.price).toFixed(2)}
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', fontSize: '15px', fontWeight: 'bold' }}
+                />
+                <span style={{ fontSize: '12px', color: '#64748b', display: 'block', marginTop: '4px' }}>
+                  Reste à payer sous 72h : <strong>${Math.max(0, Number(productToReserve.price) - Number(depositAmount || 0)).toFixed(2)}</strong>
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" style={{ flex: 1, background: '#0f172a', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  Accepter et Réserver
+                </button>
+                <button type="button" onClick={() => { setIsReserveModalOpen(false); setProductToReserve(null); }} style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '12px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Modal Auth */}
       {isAuthModalOpen && !currentUser && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px', boxSizing: 'border-box' }}>
@@ -339,7 +465,6 @@ function App() {
               </div>
             )}
 
-            {/* Alerte essais restants / Compte à rebours */}
             {authMode === 'login' && !blockedMessage && (failedAttempts > 0 || lockoutTimer > 0) && (
               <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#92400e', fontSize: '13px', lineHeight: '1.4' }}>
                 {lockoutTimer > 0 ? (
@@ -664,6 +789,7 @@ function App() {
             <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap' }}>
               <button onClick={() => setClientTab('shop')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'shop' ? '#2563eb' : '#ffffff', color: clientTab === 'shop' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🛍️ Boutique</button>
               <button onClick={() => setClientTab('orders')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'orders' ? '#2563eb' : '#ffffff', color: clientTab === 'orders' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>📦 Mes Commandes ({clientOrders.length})</button>
+              <button onClick={() => { setClientTab('reservations'); fetchClientReservations(); }} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'reservations' ? '#2563eb' : '#ffffff', color: clientTab === 'reservations' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>⏳ Mes Réservations ({clientReservations.length})</button>
               <button onClick={() => setClientTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', background: clientTab === 'settings' ? '#2563eb' : '#ffffff', color: clientTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: '1px solid #e2e8f0' }}>🔒 Mon Compte & Sécurité</button>
             </div>
 
@@ -671,7 +797,7 @@ function App() {
               <div>
                 <div style={{ textAlign: 'center', marginBottom: '35px' }}>
                   <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px' }}>Booste ton espace de travail</h1>
-                  <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Les meilleurs accessoires sélectionnés pour les développeurs et créateurs.</p>
+                  <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
                 </div>
                 {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '24px', width: '100%' }}>
@@ -685,9 +811,12 @@ function App() {
                           <p style={{ fontSize: '13px', fontWeight: 'bold', color: product.stock > 0 ? '#15803d' : '#dc2626', marginBottom: '15px' }}>
                             {product.stock > 0 ? `Stock : ${product.stock} dispo` : 'Rupture de stock'}
                           </p>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '8px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>${Number(product.price).toFixed(2)}</span>
-                            <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '14px' }}>Ajouter</button>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button onClick={() => openReserveModal(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#f1f5f9' : '#e2e8f0', color: product.stock > 0 ? '#0f172a' : '#94a3b8', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Réserver</button>
+                              <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Ajouter</button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -716,6 +845,50 @@ function App() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {clientTab === 'reservations' && (
+              <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                <h3 style={{ marginBottom: '8px' }}>Mes Réservations (Délai 72h)</h3>
+                <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '20px' }}>
+                  Toute réservation non soldée dans les 72 heures suivant le dépôt d'acompte est automatiquement annulée.
+                </p>
+                {clientReservations.length === 0 ? (
+                  <p style={{ color: '#64748b' }}>Vous n'avez aucune réservation en cours.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                    {clientReservations.map((resv) => {
+                      const remainingBalance = Math.max(0, Number(resv.total_price) - Number(resv.deposit_paid));
+                      const isExpired = resv.status === 'expired';
+                      return (
+                        <div key={resv.id} style={{ border: '1px solid #e2e8f0', padding: '15px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', backgroundColor: isExpired ? '#fef2f2' : '#ffffff' }}>
+                          <div>
+                            <h4 style={{ margin: '0 0 5px 0', color: '#0f172a' }}>{resv.product_name} (Réf #{resv.id})</h4>
+                            <div style={{ fontSize: '13px', color: '#475569' }}>
+                              Acompte versé : <strong style={{ color: '#15803d' }}>${Number(resv.deposit_paid).toFixed(2)}</strong> / ${Number(resv.total_price).toFixed(2)} — Reste à payer : <strong>${remainingBalance.toFixed(2)}</strong>
+                            </div>
+                            <span style={{ fontSize: '12px', color: isExpired ? '#dc2626' : '#64748b', display: 'block', marginTop: '4px' }}>
+                              Expire le : {new Date(resv.expires_at).toLocaleString()}
+                            </span>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span style={{
+                              fontSize: '12px',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontWeight: 'bold',
+                              backgroundColor: isExpired ? '#fee2e2' : '#fef3c7',
+                              color: isExpired ? '#dc2626' : '#b45309'
+                            }}>
+                              {isExpired ? 'Annulée (Délai 72h dépassé)' : 'Active (En attente du solde)'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -760,7 +933,7 @@ function App() {
           <div style={{ width: '100%' }}>
             <div style={{ textAlign: 'center', marginBottom: '35px' }}>
               <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px' }}>Booste ton espace de travail</h1>
-              <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Les meilleurs accessoires sélectionnés pour les développeurs et créateurs.</p>
+              <p style={{ color: '#64748b', fontSize: 'clamp(14px, 2vw, 16px)' }}>Achetez immédiatement ou réservez un article en versant 10 % d'acompte (valable 72h).</p>
             </div>
 
             {loading ? <p style={{ textAlign: 'center', color: '#64748b' }}>Chargement...</p> : (
@@ -775,9 +948,12 @@ function App() {
                       <p style={{ fontSize: '13px', fontWeight: 'bold', color: product.stock > 0 ? '#15803d' : '#dc2626', marginBottom: '15px' }}>
                         {product.stock > 0 ? `Stock : ${product.stock} dispo` : 'Rupture de stock'}
                       </p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', gap: '8px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#0f172a' }}>${Number(product.price).toFixed(2)}</span>
-                        <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '14px' }}>Ajouter</button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button onClick={() => openReserveModal(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#f1f5f9' : '#e2e8f0', color: product.stock > 0 ? '#0f172a' : '#94a3b8', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Réserver</button>
+                          <button onClick={() => addToCart(product)} disabled={product.stock <= 0} style={{ background: product.stock > 0 ? '#2563eb' : '#94a3b8', color: 'white', border: 'none', padding: '8px 14px', borderRadius: '8px', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '13px' }}>Ajouter</button>
+                        </div>
                       </div>
                     </div>
                   </div>

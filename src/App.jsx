@@ -18,15 +18,13 @@ function App() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [newForgotPass, setNewForgotPass] = useState('');
 
-  // Alertes de sécurité connexion
-  const [blockedMessage, setBlockedMessage] = useState(null);
-  const [loginWarning, setLoginWarning] = useState(null);
+  // Gestion des 3 essais et du compte à rebours 10s côté React
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutTimer, setLockoutTimer] = useState(0);
+  const [blockedMessage, setBlockedMessage] = useState(null);
 
-  // Visibilité mots de passe (Connexion)
+  // Visibilité mots de passe
   const [showPassword, setShowPassword] = useState(false);
-
-  // Visibilité mots de passe (Espace Sécurité Client / Admin)
   const [showOldPass, setShowOldPass] = useState(false);
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
@@ -38,22 +36,26 @@ function App() {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [clientOrders, setClientOrders] = useState([]);
-  const [clientTab, setClientTab] = useState('shop'); // 'shop', 'orders', 'settings'
-  
-  // Champs changement de mot de passe (avec confirmation)
+  const [clientTab, setClientTab] = useState('shop');
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
 
   // Admin states
-  const [adminTab, setAdminTab] = useState('products'); // 'products', 'stock', 'users', 'settings'
+  const [adminTab, setAdminTab] = useState('products');
   const [newProduct, setNewProduct] = useState({ name: '', category: '', price: '', description: '', image_url: '', stock: 10 });
   const [editingProduct, setEditingProduct] = useState(null);
   const [usersList, setUsersList] = useState([]);
 
-  // Décompte automatique chaque seconde lorsque lockoutTimer > 0
+  // Compte à rebours automatique
   useEffect(() => {
     if (lockoutTimer <= 0) return;
     const timer = setInterval(() => {
-      setLockoutTimer((prev) => (prev <= 1 ? 0 : prev - 1));
+      setLockoutTimer((prev) => {
+        if (prev <= 1) {
+          setFailedAttempts(0); // Réinitialiser les essais après 10s
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, [lockoutTimer]);
@@ -69,10 +71,7 @@ function App() {
   const fetchProducts = () => {
     fetch('http://localhost:5000/api/products')
       .then((res) => res.json())
-      .then((data) => {
-        setProducts(data);
-        setLoading(false);
-      })
+      .then((data) => { setProducts(data); setLoading(false); })
       .catch((err) => console.error('Erreur produits :', err));
   };
 
@@ -98,13 +97,12 @@ function App() {
     if (currentUser?.role === 'client') fetchClientOrders();
   }, [currentUser]);
 
-  // Connexion sécurisée avec décompte et gestion des essais
+  // Connexion avec gestion React des 3 essais et du chrono
   const handleLogin = (e) => {
     e.preventDefault();
     if (lockoutTimer > 0) return;
 
     setBlockedMessage(null);
-    setLoginWarning(null);
 
     fetch('http://localhost:5000/api/login', {
       method: 'POST',
@@ -116,14 +114,14 @@ function App() {
         if (!res.ok) {
           if (res.status === 403) {
             setBlockedMessage({ error: data.error, support: data.support });
-          } else if (res.status === 429) {
-            setLockoutTimer(data.retryAfter || 10);
-            setLoginWarning({ message: data.error, suggestForgot: true });
           } else {
-            setLoginWarning({
-              message: data.error || 'Erreur de connexion',
-              suggestForgot: Boolean(data.suggestForgot)
-            });
+            // Incrémenter les échecs locaux
+            const newAttempts = failedAttempts + 1;
+            setFailedAttempts(newAttempts);
+
+            if (newAttempts >= 3) {
+              setLockoutTimer(10); // Déclencher le blocage de 10s
+            }
           }
           return;
         }
@@ -132,9 +130,9 @@ function App() {
           setCurrentUser(data.user);
           setIsAuthModalOpen(false);
           setShowPassword(false);
-          setBlockedMessage(null);
-          setLoginWarning(null);
+          setFailedAttempts(0);
           setLockoutTimer(0);
+          setBlockedMessage(null);
           alert(`Bienvenue, ${data.user.name} !`);
         }
       })
@@ -175,7 +173,7 @@ function App() {
           setAuthMode('login');
           setForgotEmail('');
           setNewForgotPass('');
-          setLoginWarning(null);
+          setFailedAttempts(0);
           setLockoutTimer(0);
         }
       })
@@ -187,7 +185,6 @@ function App() {
     localStorage.removeItem('techsetup_user');
   };
 
-  // Panier & Commande
   const addToCart = (product) => {
     if (product.stock <= 0) {
       alert("Ce produit est en rupture de stock.");
@@ -206,7 +203,6 @@ function App() {
       setIsCartOpen(false);
       return;
     }
-
     fetch('http://localhost:5000/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -223,26 +219,19 @@ function App() {
           fetchProducts();
           fetchClientOrders();
         }
-      })
-      .catch((err) => console.error(err));
+      });
   };
 
-  // Changement de mot de passe sécurisé (avec vérification de la confirmation)
   const handleUserPasswordChange = (e) => {
     e.preventDefault();
     if (passwords.newPassword !== passwords.confirmPassword) {
       alert("Les nouveaux mots de passe ne correspondent pas !");
       return;
     }
-
     fetch('http://localhost:5000/api/user/password', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        userId: currentUser.id, 
-        oldPassword: passwords.oldPassword, 
-        newPassword: passwords.newPassword 
-      })
+      body: JSON.stringify({ userId: currentUser.id, oldPassword: passwords.oldPassword, newPassword: passwords.newPassword })
     })
       .then((res) => res.json())
       .then((data) => {
@@ -254,48 +243,29 @@ function App() {
           setShowNewPass(false);
           setShowConfirmPass(false);
         }
-      })
-      .catch((err) => console.error(err));
+      });
   };
 
   // Actions Admin
   const handleCreateProduct = (e) => {
     e.preventDefault();
     fetch('http://localhost:5000/api/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newProduct)
-    })
-      .then((res) => res.json())
-      .then(() => {
-        alert('Produit ajouté !');
-        setNewProduct({ name: '', category: '', price: '', description: '', image_url: '', stock: 10 });
-        fetchProducts();
-      })
-      .catch((err) => console.error(err));
+    }).then(() => { alert('Produit ajouté !'); setNewProduct({ name: '', category: '', price: '', description: '', image_url: '', stock: 10 }); fetchProducts(); });
   };
 
   const handleUpdateProduct = (e) => {
     e.preventDefault();
     fetch(`http://localhost:5000/api/products/${editingProduct.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editingProduct)
-    })
-      .then((res) => res.json())
-      .then(() => {
-        alert('Produit mis à jour !');
-        setEditingProduct(null);
-        fetchProducts();
-      })
-      .catch((err) => console.error(err));
+    }).then(() => { alert('Mis à jour !'); setEditingProduct(null); fetchProducts(); });
   };
 
   const handleDeleteProduct = (id) => {
     if (window.confirm("Supprimer ce produit ?")) {
-      fetch(`http://localhost:5000/api/products/${id}`, { method: 'DELETE' })
-        .then(() => fetchProducts())
-        .catch((err) => console.error(err));
+      fetch(`http://localhost:5000/api/products/${id}`, { method: 'DELETE' }).then(() => fetchProducts());
     }
   };
 
@@ -356,13 +326,12 @@ function App() {
         </div>
       </header>
 
-      {/* Modal Authentification, Compte Bloqué & Limite d'essais */}
+      {/* Modal Auth */}
       {isAuthModalOpen && !currentUser && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px', boxSizing: 'border-box' }}>
           <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '400px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-            <button onClick={() => { setIsAuthModalOpen(false); setBlockedMessage(null); setLoginWarning(null); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>✕</button>
+            <button onClick={() => { setIsAuthModalOpen(false); setBlockedMessage(null); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b' }}>✕</button>
             
-            {/* Boîte d'alerte compte bloqué orientée Super Admin */}
             {blockedMessage && (
               <div style={{ backgroundColor: '#fee2e2', border: '1px solid #f87171', padding: '14px', borderRadius: '8px', marginBottom: '15px', color: '#991b1b', fontSize: '13px', lineHeight: '1.5' }}>
                 <strong style={{ display: 'block', marginBottom: '4px', fontSize: '14px' }}>{blockedMessage.error}</strong>
@@ -370,22 +339,20 @@ function App() {
               </div>
             )}
 
-            {/* Alerte mauvais mot de passe / essais restants / compte à rebours */}
-            {loginWarning && authMode === 'login' && (
+            {/* Alerte essais restants / Compte à rebours */}
+            {authMode === 'login' && !blockedMessage && (failedAttempts > 0 || lockoutTimer > 0) && (
               <div style={{ backgroundColor: '#fffbeb', border: '1px solid #f59e0b', padding: '12px', borderRadius: '8px', marginBottom: '15px', color: '#92400e', fontSize: '13px', lineHeight: '1.4' }}>
-                <strong style={{ display: 'block', marginBottom: '4px' }}>
-                  {lockoutTimer > 0
-                    ? `Trop de tentatives. Réessayez dans ${lockoutTimer}s.`
-                    : loginWarning.message}
-                </strong>
-                {loginWarning.suggestForgot && (
-                  <button
-                    type="button"
-                    onClick={() => { setForgotEmail(email); setAuthMode('forgot'); setLoginWarning(null); }}
-                    style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold', marginTop: '4px' }}
-                  >
-                    Mot de passe oublié ? Cliquez ici pour le réinitialiser
-                  </button>
+                {lockoutTimer > 0 ? (
+                  <strong>Trop de tentatives échouées. Patientez {lockoutTimer}s avant de réessayer.</strong>
+                ) : (
+                  <>
+                    <strong>Mot de passe incorrect ({failedAttempts}/3 essais).</strong>
+                    <div style={{ marginTop: '5px' }}>
+                      <button type="button" onClick={() => { setForgotEmail(email); setAuthMode('forgot'); }} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                        Mot de passe oublié ?
+                      </button>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -406,26 +373,14 @@ function App() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <button type="button" onClick={() => { setAuthMode('forgot'); setBlockedMessage(null); setLoginWarning(null); }} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>Mot de passe oublié ?</button>
+                    <button type="button" onClick={() => setAuthMode('forgot')} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>Mot de passe oublié ?</button>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={lockoutTimer > 0}
-                    style={{
-                      background: lockoutTimer > 0 ? '#94a3b8' : '#2563eb',
-                      color: 'white',
-                      border: 'none',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      fontWeight: 'bold',
-                      cursor: lockoutTimer > 0 ? 'not-allowed' : 'pointer'
-                    }}
-                  >
+                  <button type="submit" disabled={lockoutTimer > 0} style={{ background: lockoutTimer > 0 ? '#94a3b8' : '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: lockoutTimer > 0 ? 'not-allowed' : 'pointer' }}>
                     {lockoutTimer > 0 ? `Patienter (${lockoutTimer}s)...` : 'Se connecter'}
                   </button>
                 </form>
                 <div style={{ textAlign: 'center', marginTop: '15px' }}>
-                  <button onClick={() => { setAuthMode('register'); setBlockedMessage(null); setLoginWarning(null); }} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Pas encore de compte ? S'inscrire</button>
+                  <button onClick={() => setAuthMode('register')} style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '13px', fontWeight: '600' }}>Pas encore de compte ? S'inscrire</button>
                 </div>
               </>
             )}
@@ -517,10 +472,10 @@ function App() {
             <h2 style={{ marginBottom: '20px', fontSize: '22px', color: '#1e293b' }}>⚙️ Espace Administrateur</h2>
             
             <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap' }}>
-              <button onClick={() => setAdminTab('products')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: adminTab === 'products' ? '#2563eb' : '#f1f5f9', color: adminTab === 'products' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer' }}>➕ Ajouter un Produit</button>
-              <button onClick={() => setAdminTab('stock')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: adminTab === 'stock' ? '#2563eb' : '#f1f5f9', color: adminTab === 'stock' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer' }}>📦 Stocks & Produits</button>
-              <button onClick={() => setAdminTab('users')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: adminTab === 'users' ? '#2563eb' : '#f1f5f9', color: adminTab === 'users' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer' }}>👥 Clients & VIP ({totalFideles})</button>
-              <button onClick={() => setAdminTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: adminTab === 'settings' ? '#2563eb' : '#f1f5f9', color: adminTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer' }}>🔒 Sécurité</button>
+              <button onClick={() => setAdminTab('products')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'products' ? '#2563eb' : '#f1f5f9', color: adminTab === 'products' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>➕ Ajouter un Produit</button>
+              <button onClick={() => setAdminTab('stock')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'stock' ? '#2563eb' : '#f1f5f9', color: adminTab === 'stock' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>📦 Stocks & Produits</button>
+              <button onClick={() => setAdminTab('users')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'users' ? '#2563eb' : '#f1f5f9', color: adminTab === 'users' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>👥 Clients & VIP ({totalFideles})</button>
+              <button onClick={() => setAdminTab('settings')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'settings' ? '#2563eb' : '#f1f5f9', color: adminTab === 'settings' ? '#ffffff' : '#475569', fontWeight: 'bold', cursor: 'pointer', border: 'none' }}>🔒 Sécurité</button>
             </div>
 
             {adminTab === 'products' && (
@@ -677,7 +632,6 @@ function App() {
             {adminTab === 'settings' && (
               <form onSubmit={handleUserPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '15px', maxWidth: '400px' }}>
                 <h3 style={{ fontSize: '16px', marginBottom: '5px' }}>Changer mon mot de passe Admin</h3>
-                
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Ancien mot de passe</label>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -685,7 +639,6 @@ function App() {
                     <button type="button" onClick={() => setShowOldPass(!showOldPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showOldPass} /></button>
                   </div>
                 </div>
-
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Nouveau mot de passe</label>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -693,7 +646,6 @@ function App() {
                     <button type="button" onClick={() => setShowNewPass(!showNewPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showNewPass} /></button>
                   </div>
                 </div>
-
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Confirmer le nouveau mot de passe</label>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -701,7 +653,6 @@ function App() {
                     <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}><EyeIcon visible={showConfirmPass} /></button>
                   </div>
                 </div>
-
                 <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Mettre à jour</button>
               </form>
             )}
@@ -774,7 +725,6 @@ function App() {
               <div style={{ background: '#ffffff', padding: '25px', borderRadius: '12px', border: '1px solid #e2e8f0', maxWidth: '400px' }}>
                 <h3 style={{ marginBottom: '15px' }}>Sécurité du Compte</h3>
                 <form onSubmit={handleUserPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Ancien mot de passe</label>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -806,7 +756,7 @@ function App() {
 
           </div>
         ) : (
-          /* ================= BOUTIQUE VISITEUR (GUEST) ================= */
+          /* ================= BOUTIQUE VISITEUR ================= */
           <div style={{ width: '100%' }}>
             <div style={{ textAlign: 'center', marginBottom: '35px' }}>
               <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', marginBottom: '10px' }}>Booste ton espace de travail</h1>

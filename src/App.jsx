@@ -304,6 +304,55 @@ function App() {
     }
   }, [currentUser]);
 
+  const evaluatePasswordStrength = (pwd = '') => {
+    const minLength = pwd.length >= 8;
+    const hasLower = /[a-z]/.test(pwd);
+    const hasUpper = /[A-Z]/.test(pwd);
+    const hasNumber = /[0-9]/.test(pwd);
+    const hasSymbol = /[^A-Za-z0-9]/.test(pwd);
+
+    const score = [minLength, hasLower, hasUpper, hasNumber, hasSymbol].filter(Boolean).length;
+
+    let label = 'Faible';
+    let color = '#ef4444';
+    let percent = 20;
+
+    if (!pwd) {
+      label = 'À saisir (min. 8 caractères)';
+      color = '#94a3b8';
+      percent = 0;
+    } else if (!minLength || score <= 2) {
+      label = 'Faible';
+      color = '#ef4444';
+      percent = Math.max(25, score * 20);
+    } else if (score === 3) {
+      label = 'Moyen';
+      color = '#f59e0b';
+      percent = 60;
+    } else if (score === 4) {
+      label = 'Robuste';
+      color = '#16a34a';
+      percent = 80;
+    } else {
+      label = 'Très robuste';
+      color = '#059669';
+      percent = 100;
+    }
+
+    return {
+      minLength,
+      hasLower,
+      hasUpper,
+      hasNumber,
+      hasSymbol,
+      score,
+      label,
+      color,
+      percent,
+      isValid: minLength && score >= 3
+    };
+  };
+
   const availableProductsForCategories = products.filter((p) => {
     if (activeTabFilter === 'physical') return p.product_type === 'physical';
     if (activeTabFilter === 'digital') return p.product_type === 'digital';
@@ -360,6 +409,16 @@ function App() {
 
   const handleRegister = (e) => {
     e.preventDefault();
+    const strength = evaluatePasswordStrength(password);
+    if (!strength.minLength) {
+      alert('Le mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+    if (!strength.isValid) {
+      alert('Choisissez un mot de passe plus robuste (au moins 8 caractères incluant majuscule, minuscule, chiffre ou symbole).');
+      return;
+    }
+
     fetch('http://localhost:5000/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -379,6 +438,16 @@ function App() {
 
   const handleForgotPassword = (e) => {
     e.preventDefault();
+    const strength = evaluatePasswordStrength(newForgotPass);
+    if (!strength.minLength) {
+      alert('Le nouveau mot de passe doit contenir au moins 8 caractères.');
+      return;
+    }
+    if (!strength.isValid) {
+      alert('Choisissez un nouveau mot de passe plus robuste (au moins 8 caractères avec lettres, chiffres ou symboles).');
+      return;
+    }
+
     fetch('http://localhost:5000/api/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -599,6 +668,16 @@ function App() {
       alert("Les nouveaux mots de passe ne correspondent pas !");
       return;
     }
+    const strength = evaluatePasswordStrength(passwords.newPassword);
+    if (!strength.minLength) {
+      alert("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (!strength.isValid) {
+      alert("Choisissez un mot de passe plus robuste (au moins 8 caractères incluant majuscule, minuscule, chiffre ou symbole).");
+      return;
+    }
+
     fetch('http://localhost:5000/api/user/password', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -722,6 +801,49 @@ function App() {
         text: '#0f172a',
         textMuted: '#64748b'
       };
+
+  const renderPasswordStrengthMeter = (pwd) => {
+    if (!pwd) return null;
+    const strength = evaluatePasswordStrength(pwd);
+
+    return (
+      <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+          <span style={{ color: palette.textMuted }}>Robustesse :</span>
+          <strong style={{ color: strength.color }}>{strength.label}</strong>
+        </div>
+
+        <div style={{ width: '100%', height: '6px', borderRadius: '999px', backgroundColor: isDark ? '#334155' : '#e2e8f0', overflow: 'hidden' }}>
+          <div
+            style={{
+              width: `${strength.percent}%`,
+              height: '100%',
+              backgroundColor: strength.color,
+              transition: 'width 0.25s ease, background-color 0.25s ease'
+            }}
+          />
+        </div>
+
+        <div style={{ fontSize: '11.5px', color: palette.textMuted, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <span style={{ color: strength.minLength ? '#16a34a' : '#ef4444' }}>
+            {strength.minLength ? '✓' : '✕'} 8+ caractères
+          </span>
+          <span style={{ color: strength.hasUpper ? '#16a34a' : palette.textMuted }}>
+            {strength.hasUpper ? '✓' : '•'} Majuscule
+          </span>
+          <span style={{ color: strength.hasLower ? '#16a34a' : palette.textMuted }}>
+            {strength.hasLower ? '✓' : '•'} Minuscule
+          </span>
+          <span style={{ color: strength.hasNumber ? '#16a34a' : palette.textMuted }}>
+            {strength.hasNumber ? '✓' : '•'} Chiffre
+          </span>
+          <span style={{ color: strength.hasSymbol ? '#16a34a' : '#f59e0b' }}>
+            {strength.hasSymbol ? '✓' : '•'} Symbole (!@#...)
+          </span>
+        </div>
+      </div>
+    );
+  };
 
   const renderAvatarCircle = (size = 28, fontSize = 13, clickable = false) => (
     <div
@@ -1253,7 +1375,8 @@ function App() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Mot de passe</label>
-                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
+                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
+                    {renderPasswordStrengthMeter(password)}
                   </div>
                   <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>S'inscrire</button>
                 </form>
@@ -1266,7 +1389,7 @@ function App() {
             {authMode === 'forgot' && (
               <>
                 <h2 style={{ textAlign: 'center', marginBottom: '10px', fontSize: '20px' }}>Récupération</h2>
-                <p style={{ fontSize: '13px', color: palette.textMuted, textAlign: 'center', marginBottom: '15px' }}>Entrez votre email et choisissez un nouveau mot de passe.</p>
+                <p style={{ fontSize: '13px', color: palette.textMuted, textAlign: 'center', marginBottom: '15px' }}>Entrez votre email et choisissez un nouveau mot de passe (8 caractères minimum).</p>
                 <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Email associé</label>
@@ -1274,7 +1397,8 @@ function App() {
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Nouveau mot de passe</label>
-                    <input type="password" value={newForgotPass} onChange={(e) => setNewForgotPass(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
+                    <input type="password" value={newForgotPass} onChange={(e) => setNewForgotPass(e.target.value)} minLength={8} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
+                    {renderPasswordStrengthMeter(newForgotPass)}
                   </div>
                   <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>Réinitialiser</button>
                 </form>
@@ -1531,14 +1655,15 @@ function App() {
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Nouveau mot de passe</label>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input type={showNewPass ? 'text' : 'password'} value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
+                    <input type={showNewPass ? 'text' : 'password'} value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} minLength={8} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
                     <button type="button" onClick={() => setShowNewPass(!showNewPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: palette.textMuted }}><EyeIcon visible={showNewPass} /></button>
                   </div>
+                  {renderPasswordStrengthMeter(passwords.newPassword)}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Confirmer le nouveau mot de passe</label>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input type={showConfirmPass ? 'text' : 'password'} value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
+                    <input type={showConfirmPass ? 'text' : 'password'} value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} minLength={8} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surfaceAlt, color: palette.text, boxSizing: 'border-box' }} />
                     <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: palette.textMuted }}><EyeIcon visible={showConfirmPass} /></button>
                   </div>
                 </div>
@@ -1784,15 +1909,16 @@ function App() {
                       <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Nouveau mot de passe</label>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                          <input type={showNewPass ? 'text' : 'password'} value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }} />
+                          <input type={showNewPass ? 'text' : 'password'} value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} minLength={8} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }} />
                           <button type="button" onClick={() => setShowNewPass(!showNewPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: palette.textMuted }}><EyeIcon visible={showNewPass} /></button>
                         </div>
+                        {renderPasswordStrengthMeter(passwords.newPassword)}
                       </div>
 
                       <div>
                         <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Confirmer le nouveau mot de passe</label>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                          <input type={showConfirmPass ? 'text' : 'password'} value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }} />
+                          <input type={showConfirmPass ? 'text' : 'password'} value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} minLength={8} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }} />
                           <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: palette.textMuted }}><EyeIcon visible={showConfirmPass} /></button>
                         </div>
                       </div>

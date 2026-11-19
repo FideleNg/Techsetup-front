@@ -1,128 +1,152 @@
 import { useState, useEffect } from 'react';
 
-const SearchAndFiltersBar = ({ searchQuery, setSearchQuery, isSearchFocused, setIsSearchFocused, categories, selectedCategory, setSelectedCategory, activeTabFilter, setActiveTabFilter }) => (
-  <div style={{ width: '100%', maxWidth: '650px', margin: '0 0 28px auto', display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'flex-end' }}>
-    
-    {/* Filtre principal : Tout / Matériel / Livres Numériques */}
-    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-      <button
-        onClick={() => { setActiveTabFilter('all'); setSelectedCategory('Toutes'); }}
-        style={{
-          padding: '8px 16px',
-          borderRadius: '9999px',
-          border: activeTabFilter === 'all' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-          backgroundColor: activeTabFilter === 'all' ? '#eff6ff' : '#ffffff',
-          color: activeTabFilter === 'all' ? '#1d4ed8' : '#475569',
-          fontWeight: '700',
-          fontSize: '13px',
-          cursor: 'pointer'
-        }}
-      >
-        ✨ Tout le catalogue
-      </button>
-      <button
-        onClick={() => { setActiveTabFilter('physical'); setSelectedCategory('Toutes'); }}
-        style={{
-          padding: '8px 16px',
-          borderRadius: '9999px',
-          border: activeTabFilter === 'physical' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-          backgroundColor: activeTabFilter === 'physical' ? '#eff6ff' : '#ffffff',
-          color: activeTabFilter === 'physical' ? '#1d4ed8' : '#475569',
-          fontWeight: '700',
-          fontSize: '13px',
-          cursor: 'pointer'
-        }}
-      >
-        💻 Matériel Informatique
-      </button>
-      <button
-        onClick={() => { setActiveTabFilter('digital'); setSelectedCategory('Toutes'); }}
-        style={{
-          padding: '8px 16px',
-          borderRadius: '9999px',
-          border: activeTabFilter === 'digital' ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-          backgroundColor: activeTabFilter === 'digital' ? '#eff6ff' : '#ffffff',
-          color: activeTabFilter === 'digital' ? '#1d4ed8' : '#475569',
-          fontWeight: '700',
-          fontSize: '13px',
-          cursor: 'pointer'
-        }}
-      >
-        📚 Livres Numériques (E-books)
-      </button>
-    </div>
+const SearchAndFiltersBar = ({
+  searchQuery,
+  setSearchQuery,
+  isSearchFocused,
+  setIsSearchFocused,
+  categories,
+  selectedCategory,
+  setSelectedCategory,
+  activeTabFilter,
+  setActiveTabFilter
+}) => {
+  const selectStyle = {
+    padding: '11px 14px',
+    borderRadius: '12px',
+    border: '1px solid #cbd5e1',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    fontSize: '13.5px',
+    fontWeight: '600',
+    cursor: 'pointer',
+    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+    outline: 'none'
+  };
 
-    {/* Barre de recherche */}
-    <div style={{ position: 'relative', width: '100%' }}>
-      <div style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
+  return (
+    <div
+      style={{
+        width: '100%',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: '10px',
+        flexWrap: 'wrap',
+        marginBottom: '28px'
+      }}
+    >
+      {/* 1. Menu déroulant : Type de catalogue */}
+      <select
+        aria-label="Filtrer par catalogue"
+        value={activeTabFilter}
+        onChange={(e) => {
+          setActiveTabFilter(e.target.value);
+          setSelectedCategory('Toutes');
+        }}
+        style={selectStyle}
+      >
+        <option value="all">Tout le catalogue</option>
+        <option value="physical">Matériel Informatique</option>
+        <option value="digital">Livres Numériques (E-books)</option>
+      </select>
+
+      {/* 2. Menu déroulant : Catégories */}
+      <select
+        aria-label="Filtrer par catégorie"
+        value={selectedCategory}
+        onChange={(e) => setSelectedCategory(e.target.value)}
+        style={selectStyle}
+      >
+        {categories.map((cat) => (
+          <option key={cat} value={cat}>
+            {cat === 'Toutes' ? 'Toutes les catégories' : cat}
+          </option>
+        ))}
+      </select>
+
+      {/* 3. Barre de recherche avec loupe */}
+      <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: '14px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            pointerEvents: 'none'
+          }}
+        >
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="2.3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </div>
+
+        <input
+          type="text"
+          placeholder="Rechercher..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => setIsSearchFocused(false)}
+          style={{
+            width: '100%',
+            padding: '11px 36px 11px 40px',
+            borderRadius: '12px',
+            border: isSearchFocused ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
+            fontSize: '13.5px',
+            color: '#0f172a',
+            boxSizing: 'border-box',
+            backgroundColor: '#ffffff',
+            boxShadow: isSearchFocused
+              ? '0 4px 14px rgba(37, 99, 235, 0.14)'
+              : '0 2px 8px rgba(15, 23, 42, 0.04)',
+            outline: 'none',
+            transition: 'all 0.2s ease'
+          }}
+        />
+
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery('')}
+            style={{
+              position: 'absolute',
+              right: '10px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: '#f1f5f9',
+              border: 'none',
+              borderRadius: '50%',
+              width: '22px',
+              height: '22px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#475569',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 'bold'
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
-
-      <input
-        type="text"
-        placeholder="Rechercher un accessoire ou un livre (ex: clavier, python, comptabilité...)"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        onFocus={() => setIsSearchFocused(true)}
-        onBlur={() => setIsSearchFocused(false)}
-        style={{
-          width: '100%',
-          padding: '13px 42px 13px 46px',
-          borderRadius: '9999px',
-          border: isSearchFocused ? '1.5px solid #2563eb' : '1px solid #cbd5e1',
-          fontSize: '14px',
-          color: '#0f172a',
-          boxSizing: 'border-box',
-          backgroundColor: '#ffffff',
-          boxShadow: isSearchFocused ? '0 6px 18px rgba(37, 99, 235, 0.14)' : '0 4px 12px rgba(15, 23, 42, 0.05)',
-          outline: 'none',
-          transition: 'all 0.2s ease'
-        }}
-      />
-
-      {searchQuery && (
-        <button
-          type="button"
-          onClick={() => setSearchQuery('')}
-          style={{
-            position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-            background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '24px', height: '24px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold'
-          }}
-        >
-          ✕
-        </button>
-      )}
     </div>
-
-    {/* Sous-catégories dynamiques */}
-    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-      {categories.map((cat) => (
-        <button
-          key={cat}
-          onClick={() => setSelectedCategory(cat)}
-          style={{
-            padding: '6px 14px',
-            borderRadius: '9999px',
-            border: selectedCategory === cat ? '1px solid #2563eb' : '1px solid #e2e8f0',
-            backgroundColor: selectedCategory === cat ? '#2563eb' : '#ffffff',
-            color: selectedCategory === cat ? '#ffffff' : '#475569',
-            fontWeight: '600',
-            fontSize: '12.5px',
-            cursor: 'pointer',
-            boxShadow: selectedCategory === cat ? '0 2px 8px rgba(37, 99, 235, 0.25)' : '0 1px 3px rgba(0,0,0,0.03)',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          {cat}
-        </button>
-      ))}
-    </div>
-  </div>
-);
+  );
+};
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -150,7 +174,6 @@ function App() {
   const [showNewPass, setShowNewPass] = useState(false);
   const [showConfirmPass, setShowConfirmPass] = useState(false);
 
-  // Recherche, Catégories & Filtre Type de Service ('all', 'physical', 'digital')
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Toutes');
   const [activeTabFilter, setActiveTabFilter] = useState('all');
@@ -170,7 +193,6 @@ function App() {
   const [productToReserve, setProductToReserve] = useState(null);
   const [depositAmount, setDepositAmount] = useState('');
 
-  // Admin states
   const [adminTab, setAdminTab] = useState('products');
   const [newProduct, setNewProduct] = useState({
     product_type: 'physical',
@@ -251,15 +273,13 @@ function App() {
     }
   }, [currentUser]);
 
-  // Extraction dynamique des catégories selon l'onglet actif (Matériel ou Livres)
-  const availableProductsForCategories = products.filter(p => {
+  const availableProductsForCategories = products.filter((p) => {
     if (activeTabFilter === 'physical') return p.product_type === 'physical';
     if (activeTabFilter === 'digital') return p.product_type === 'digital';
     return true;
   });
   const categories = ['Toutes', ...new Set(availableProductsForCategories.map((p) => p.category).filter(Boolean))];
 
-  // Filtrage global des produits
   const filteredProducts = products.filter((product) => {
     const matchesTab = activeTabFilter === 'all' || product.product_type === activeTabFilter;
     const matchesCategory = selectedCategory === 'Toutes' || product.category === selectedCategory;

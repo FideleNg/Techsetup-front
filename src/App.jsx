@@ -205,6 +205,7 @@ function App() {
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isClientDrawerOpen, setIsClientDrawerOpen] = useState(false);
+  const [isAdminDrawerOpen, setIsAdminDrawerOpen] = useState(false);
   const [clientOrders, setClientOrders] = useState([]);
   const [clientReservations, setClientReservations] = useState([]);
   const [clientTab, setClientTab] = useState('shop');
@@ -471,6 +472,7 @@ function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     setIsClientDrawerOpen(false);
+    setIsAdminDrawerOpen(false);
     setClientTab('shop');
     setSettingsSection('menu');
     localStorage.removeItem('techsetup_user');
@@ -783,6 +785,11 @@ function App() {
 
   const VIP_THRESHOLD = 3;
   const totalFideles = usersList.filter(u => u.role === 'client' && u.total_orders >= VIP_THRESHOLD).length;
+  const totalClients = usersList.filter(u => u.role === 'client').length;
+  const lowStockCount = products.filter(p => p.product_type === 'physical' && Number(p.stock) <= 3).length;
+  const stockValue = products
+    .filter(p => p.product_type === 'physical')
+    .reduce((sum, p) => sum + Number(p.price) * Number(p.stock || 0), 0);
 
   const palette = isDark
     ? {
@@ -978,6 +985,31 @@ function App() {
             <button
               onClick={() => setIsClientDrawerOpen(true)}
               aria-label="Ouvrir le tiroir de navigation"
+              style={{
+                marginLeft: '8px',
+                background: palette.surfaceAlt,
+                color: palette.text,
+                border: `1px solid ${palette.border}`,
+                padding: '6px 12px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontWeight: '700',
+                fontSize: '12.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                boxShadow: '0 2px 6px rgba(15, 23, 42, 0.06)'
+              }}
+            >
+              <span>☰</span>
+              <span>Menu</span>
+            </button>
+          )}
+
+          {currentUser && currentUser.role === 'admin' && (
+            <button
+              onClick={() => setIsAdminDrawerOpen(true)}
+              aria-label="Ouvrir le panneau d'administration"
               style={{
                 marginLeft: '8px',
                 background: palette.surfaceAlt,
@@ -1252,6 +1284,133 @@ function App() {
         </>
       )}
 
+      {currentUser && currentUser.role === 'admin' && (
+        <>
+          {isAdminDrawerOpen && (
+            <div
+              onClick={() => setIsAdminDrawerOpen(false)}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                zIndex: 900
+              }}
+            />
+          )}
+
+          <aside
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '300px',
+              maxWidth: '85vw',
+              height: '100vh',
+              backgroundColor: palette.surface,
+              borderRight: `1px solid ${palette.border}`,
+              boxShadow: '12px 0 32px rgba(15, 23, 42, 0.22)',
+              zIndex: 950,
+              padding: '20px',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '14px',
+              transform: isAdminDrawerOpen ? 'translateX(0)' : 'translateX(-100%)',
+              transition: 'transform 0.28s cubic-bezier(0.22, 1, 0.36, 1)'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${palette.border}`, paddingBottom: '12px' }}>
+              <span style={{ fontWeight: '800', fontSize: '15px', color: palette.text }}>Panneau Admin</span>
+              <button
+                onClick={() => setIsAdminDrawerOpen(false)}
+                style={{ background: palette.surfaceAlt, border: `1px solid ${palette.border}`, borderRadius: '8px', width: '28px', height: '28px', fontWeight: 'bold', color: palette.textMuted, cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ backgroundColor: palette.surfaceAlt, border: `1px solid ${palette.border}`, borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div style={{ fontWeight: '700', fontSize: '14.5px', color: palette.text }}>{currentUser.name}</div>
+              <div style={{ fontSize: '12px', color: palette.textMuted }}>{currentUser.email}</div>
+              <span style={{ width: 'fit-content', marginTop: '4px', fontSize: '11px', fontWeight: '700', padding: '3px 8px', borderRadius: '6px', backgroundColor: isDark ? '#1e3a8a' : '#eff6ff', color: isDark ? '#93c5fd' : '#1d4ed8' }}>
+                Administrateur
+              </span>
+            </div>
+
+            <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {[
+                { id: 'products', label: '➕ Ajouter un Article' },
+                { id: 'stock', label: `📦 Catalogue & Stocks (${products.length})` },
+                { id: 'users', label: `👥 Clients & VIP (${totalFideles})` },
+                { id: 'settings', label: '🔒 Sécurité' }
+              ].map((tab) => {
+                const active = adminTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => { setAdminTab(tab.id); setIsAdminDrawerOpen(false); }}
+                    style={{
+                      textAlign: 'left',
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      backgroundColor: active ? (isDark ? '#1e3a8a' : '#eff6ff') : 'transparent',
+                      color: active ? '#3b82f6' : palette.text,
+                      fontWeight: '600',
+                      fontSize: '13.5px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: `1px solid ${palette.border}`, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setThemeMode(isDark ? 'light' : 'dark')}
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: `1px solid ${palette.border}`,
+                  backgroundColor: palette.surfaceAlt,
+                  color: palette.text,
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                {isDark ? '☀️ Passer en mode clair' : '🌙 Passer en mode sombre'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsAdminDrawerOpen(false); handleLogout(); }}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  backgroundColor: '#fee2e2',
+                  color: '#dc2626',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Déconnexion
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+
       {isReserveModalOpen && productToReserve && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.55)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1100, padding: '15px', boxSizing: 'border-box' }}>
           <div style={{ background: palette.surface, color: palette.text, padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '440px', position: 'relative', boxShadow: '0 10px 25px rgba(0,0,0,0.25)', border: `1px solid ${palette.border}` }}>
@@ -1447,7 +1606,28 @@ function App() {
         
         {currentUser && currentUser.role === 'admin' ? (
           <div style={{ width: '100%', maxWidth: '100%', background: palette.surface, padding: 'clamp(18px, 3vw, 30px)', borderRadius: '12px', border: `1px solid ${palette.border}`, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.08)', boxSizing: 'border-box' }}>
-            <h2 style={{ marginBottom: '20px', fontSize: '22px' }}>⚙️ Espace Administrateur</h2>
+            <h2 style={{ marginBottom: '18px', fontSize: '22px' }}>⚙️ Espace Administrateur</h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '22px' }}>
+              <div style={{ backgroundColor: palette.surfaceAlt, border: `1px solid ${palette.border}`, borderRadius: '12px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', color: palette.textMuted }}>Articles au catalogue</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#3b82f6', marginTop: '4px' }}>{products.length}</div>
+              </div>
+              <div style={{ backgroundColor: palette.surfaceAlt, border: `1px solid ${palette.border}`, borderRadius: '12px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', color: palette.textMuted }}>Stock faible (≤ 3)</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: lowStockCount > 0 ? '#f59e0b' : '#16a34a', marginTop: '4px' }}>{lowStockCount}</div>
+              </div>
+              <div style={{ backgroundColor: palette.surfaceAlt, border: `1px solid ${palette.border}`, borderRadius: '12px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', color: palette.textMuted }}>Clients & VIP</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: palette.text, marginTop: '4px' }}>
+                  {totalClients} <span style={{ fontSize: '13px', fontWeight: '700', color: '#d97706' }}>({totalFideles} VIP)</span>
+                </div>
+              </div>
+              <div style={{ backgroundColor: palette.surfaceAlt, border: `1px solid ${palette.border}`, borderRadius: '12px', padding: '14px' }}>
+                <div style={{ fontSize: '12px', color: palette.textMuted }}>Valeur stock matériel</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#16a34a', marginTop: '4px' }}>${stockValue.toFixed(2)}</div>
+              </div>
+            </div>
             
             <div style={{ display: 'flex', gap: '10px', marginBottom: '25px', borderBottom: `1px solid ${palette.border}`, paddingBottom: '10px', flexWrap: 'wrap' }}>
               <button onClick={() => setAdminTab('products')} style={{ padding: '8px 16px', borderRadius: '6px', background: adminTab === 'products' ? '#2563eb' : palette.surfaceAlt, color: adminTab === 'products' ? '#ffffff' : palette.textMuted, fontWeight: 'bold', cursor: 'pointer', border: `1px solid ${palette.border}` }}>➕ Ajouter un Article</button>

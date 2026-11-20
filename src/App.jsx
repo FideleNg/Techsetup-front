@@ -588,7 +588,7 @@ function App() {
   });
 
   const [profileCustom, setProfileCustom] = useState({ displayName: '', avatarData: '' });
-  const [displayNameInput, setDisplayNameInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
 
   const [settingsSection, setSettingsSection] = useState('menu');
 
@@ -694,8 +694,8 @@ function App() {
       const key = `techsetup_profile_${currentUser.id}`;
       const saved = localStorage.getItem(key);
       const parsed = saved ? JSON.parse(saved) : { displayName: currentUser.name, avatarData: '' };
-      setProfileCustom(parsed);
-      setDisplayNameInput(parsed.displayName || currentUser.name || '');
+      setProfileCustom({ ...parsed, displayName: currentUser.name || parsed.displayName || '' });
+      setEmailInput(currentUser.email || '');
 
       if (isSuperAdmin(currentUser)) {
         setAdminTab('super_admin');
@@ -712,7 +712,7 @@ function App() {
       }
     } else {
       setProfileCustom({ displayName: '', avatarData: '' });
-      setDisplayNameInput('');
+      setEmailInput('');
     }
   }, [currentUser]);
 
@@ -1138,7 +1138,7 @@ function App() {
 
         const compactAvatar = canvas.toDataURL('image/jpeg', 0.82);
         const updated = {
-          displayName: profileCustom.displayName || currentUser.name,
+          displayName: currentUser.name || profileCustom.displayName,
           avatarData: compactAvatar
         };
         setProfileCustom(updated);
@@ -1152,24 +1152,44 @@ function App() {
   const handleRemoveAvatar = () => {
     if (!currentUser) return;
     const updated = {
-      displayName: profileCustom.displayName || currentUser.name,
+      displayName: currentUser.name || profileCustom.displayName,
       avatarData: ''
     };
     setProfileCustom(updated);
     localStorage.setItem(`techsetup_profile_${currentUser.id}`, JSON.stringify(updated));
   };
 
-  const handleSaveDisplayName = (e) => {
+  const handleSaveEmail = (e) => {
     e.preventDefault();
-    const trimmed = displayNameInput.trim();
-    if (trimmed.length < 2) {
-      alert("Veuillez entrer un nom d'affichage d'au moins 2 caractères.");
+    const trimmedEmail = emailInput.trim().toLowerCase();
+    if (!trimmedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      alert('Veuillez saisir une adresse e-mail valide.');
       return;
     }
-    const updated = { ...profileCustom, displayName: trimmed };
-    setProfileCustom(updated);
-    localStorage.setItem(`techsetup_profile_${currentUser.id}`, JSON.stringify(updated));
-    alert("Nom d'affichage mis à jour !");
+
+    fetch(`${API_BASE}/api/user/email`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders
+      },
+      body: JSON.stringify({ email: trimmedEmail })
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Erreur lors de la mise à jour de l'e-mail.");
+          return;
+        }
+        if (data.user) {
+          setCurrentUser(data.user);
+          setEmailInput(data.user.email);
+        } else {
+          setCurrentUser((prev) => ({ ...prev, email: trimmedEmail }));
+        }
+        alert(data.message || 'Adresse e-mail mise à jour avec succès !');
+      })
+      .catch((err) => console.error('Erreur mise à jour e-mail :', err));
   };
 
   const openReserveModal = (product) => {
@@ -1587,7 +1607,7 @@ function App() {
     </svg>
   );
 
-  const effectiveName = (profileCustom.displayName || currentUser?.name || 'Client').trim();
+  const effectiveName = (currentUser?.name || profileCustom.displayName || 'Client').trim();
   const userInitial = effectiveName.charAt(0).toUpperCase();
 
   const VIP_THRESHOLD = 3;
@@ -4248,37 +4268,162 @@ function App() {
 
                 {settingsSection === 'logins' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <form onSubmit={handleSaveDisplayName} style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '18px', backgroundColor: palette.surfaceAlt, borderRadius: '12px', border: `1px solid ${palette.border}` }}>
-                      <label style={{ fontSize: '13.5px', fontWeight: '700' }}>Nom d'affichage</label>
-                      <input
-                        type="text"
-                        value={displayNameInput}
-                        onChange={(e) => setDisplayNameInput(e.target.value)}
-                        required
-                        style={{ width: '100%', padding: '10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }}
-                      />
-                      <button type="submit" style={{ width: 'fit-content', background: '#2563eb', color: 'white', border: 'none', padding: '9px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>
-                        Enregistrer le nom
+                    <form
+                      onSubmit={handleSaveEmail}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '14px',
+                        padding: '18px',
+                        backgroundColor: palette.surfaceAlt,
+                        borderRadius: '12px',
+                        border: `1px solid ${palette.border}`
+                      }}
+                    >
+                      <div>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', marginBottom: '5px' }}>
+                          Nom (non modifiable)
+                        </label>
+                        <input
+                          type="text"
+                          value={currentUser?.name || ''}
+                          readOnly
+                          disabled
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '8px',
+                            border: `1px solid ${palette.border}`,
+                            backgroundColor: isDark ? '#0f172a' : '#e2e8f0',
+                            color: palette.textMuted,
+                            boxSizing: 'border-box',
+                            cursor: 'not-allowed'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: '700', marginBottom: '5px' }}>
+                          Adresse e-mail
+                        </label>
+                        <input
+                          type="email"
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '8px',
+                            border: `1px solid ${palette.border}`,
+                            backgroundColor: palette.surface,
+                            color: palette.text,
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        style={{
+                          width: 'fit-content',
+                          background: '#2563eb',
+                          color: 'white',
+                          border: 'none',
+                          padding: '9px 16px',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
+                        Enregistrer l'adresse e-mail
                       </button>
                     </form>
 
-                    <form onSubmit={handleUserPasswordChange} style={{ display: 'flex', flexDirection: 'column', gap: '14px', padding: '18px', backgroundColor: palette.surfaceAlt, borderRadius: '12px', border: `1px solid ${palette.border}` }}>
+                    <form
+                      onSubmit={handleUserPasswordChange}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '14px',
+                        padding: '18px',
+                        backgroundColor: palette.surfaceAlt,
+                        borderRadius: '12px',
+                        border: `1px solid ${palette.border}`
+                      }}
+                    >
                       <span style={{ fontSize: '14px', fontWeight: '700' }}>Changer le mot de passe</span>
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Ancien mot de passe</label>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>
+                          Ancien mot de passe
+                        </label>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                          <input type={showOldPass ? 'text' : 'password'} value={passwords.oldPassword} onChange={(e) => setPasswords({ ...passwords, oldPassword: e.target.value })} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }} />
-                          <button type="button" onClick={() => setShowOldPass(!showOldPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: palette.textMuted }}>
+                          <input
+                            type={showOldPass ? 'text' : 'password'}
+                            value={passwords.oldPassword}
+                            onChange={(e) => setPasswords({ ...passwords, oldPassword: e.target.value })}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '10px 40px 10px 10px',
+                              borderRadius: '8px',
+                              border: `1px solid ${palette.border}`,
+                              backgroundColor: palette.surface,
+                              color: palette.text,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOldPass(!showOldPass)}
+                            style={{
+                              position: 'absolute',
+                              right: '10px',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: palette.textMuted
+                            }}
+                          >
                             <EyeIcon visible={showOldPass} />
                           </button>
                         </div>
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Nouveau mot de passe</label>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>
+                          Nouveau mot de passe
+                        </label>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                          <input type={showNewPass ? 'text' : 'password'} value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} minLength={8} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }} />
-                          <button type="button" onClick={() => setShowNewPass(!showNewPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: palette.textMuted }}>
+                          <input
+                            type={showNewPass ? 'text' : 'password'}
+                            value={passwords.newPassword}
+                            onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })}
+                            minLength={8}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '10px 40px 10px 10px',
+                              borderRadius: '8px',
+                              border: `1px solid ${palette.border}`,
+                              backgroundColor: palette.surface,
+                              color: palette.text,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPass(!showNewPass)}
+                            style={{
+                              position: 'absolute',
+                              right: '10px',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: palette.textMuted
+                            }}
+                          >
                             <EyeIcon visible={showNewPass} />
                           </button>
                         </div>
@@ -4286,16 +4431,57 @@ function App() {
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>Confirmer le nouveau mot de passe</label>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '5px' }}>
+                          Confirmer le nouveau mot de passe
+                        </label>
                         <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                          <input type={showConfirmPass ? 'text' : 'password'} value={passwords.confirmPassword} onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })} minLength={8} required style={{ width: '100%', padding: '10px 40px 10px 10px', borderRadius: '8px', border: `1px solid ${palette.border}`, backgroundColor: palette.surface, color: palette.text, boxSizing: 'border-box' }} />
-                          <button type="button" onClick={() => setShowConfirmPass(!showConfirmPass)} style={{ position: 'absolute', right: '10px', background: 'none', border: 'none', cursor: 'pointer', color: palette.textMuted }}>
+                          <input
+                            type={showConfirmPass ? 'text' : 'password'}
+                            value={passwords.confirmPassword}
+                            onChange={(e) => setPasswords({ ...passwords, confirmPassword: e.target.value })}
+                            minLength={8}
+                            required
+                            style={{
+                              width: '100%',
+                              padding: '10px 40px 10px 10px',
+                              borderRadius: '8px',
+                              border: `1px solid ${palette.border}`,
+                              backgroundColor: palette.surface,
+                              color: palette.text,
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPass(!showConfirmPass)}
+                            style={{
+                              position: 'absolute',
+                              right: '10px',
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              color: palette.textMuted
+                            }}
+                          >
                             <EyeIcon visible={showConfirmPass} />
                           </button>
                         </div>
                       </div>
 
-                      <button type="submit" style={{ width: 'fit-content', background: '#2563eb', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>
+                      <button
+                        type="submit"
+                        style={{
+                          width: 'fit-content',
+                          background: '#2563eb',
+                          color: 'white',
+                          border: 'none',
+                          padding: '10px 16px',
+                          borderRadius: '8px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          fontSize: '13px'
+                        }}
+                      >
                         Mettre à jour le mot de passe
                       </button>
                     </form>
